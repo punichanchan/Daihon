@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台本・文字数カウンターエディタ (マルチユーザー版)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  
+  <style>
+    :root {
+      --surface-1: #f3f4f6; --surface-2: #ffffff;
+      --border: #d1d5db; --border-strong: #9ca3af;
+      --text-primary: #111827; --text-secondary: #4b5563;
+      --text-muted: #9ca3af; --text-accent: #2563eb;
+      --bg-accent: #eff6ff; --border-accent: #bfdbfe;
+      --radius: 8px;
+      --font-sans: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+      --text-danger: #ef4444; --bg-danger: #fee2e2; --border-danger: #fecaca;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-sans);background:#f9fafb}
+    #root{display:flex;flex-direction:column;min-height:100vh}
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+    
+    /* ログイン・登録画面のスタイル */
+    .auth-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .auth-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .auth-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+    .auth-card p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+    .btn-google { background: #fff; color: #757575; border: 0.5px solid var(--border); padding: 10px 16px; border-radius: var(--radius); font-weight: 500; font-size: 14px; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; }
+    .btn-google:hover { background: var(--surface-1); }
+    
+    #app-content { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    #statbar{display:flex;align-items:center;gap:12px;padding:7px 14px;background:var(--surface-1);border-bottom:0.5px solid var(--border);font-size:13px;flex-shrink:0}
+    #statbar .sb-proj{font-weight:500;color:var(--text-primary);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #statbar .sb-sep{color:var(--border-strong)}
+    .stat-chip{display:flex;flex-direction:column;align-items:center;gap:1px}
+    .stat-chip .sc-val{font-size:15px;font-weight:500;color:var(--text-primary)}
+    .stat-chip .sc-lbl{font-size:10px;color:var(--text-muted)}
+    .stat-chip.ac .sc-val{color:var(--text-accent)}
+    .stat-chip.ac .sc-lbl{color:var(--text-accent)}
+    #statbar .ml{margin-left:auto;display:flex;gap:8px;align-items:center}
+    
+    /* ユーザー情報表示 */
+    .user-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); background: #fff; border: 0.5px solid var(--border); padding: 3px 8px; border-radius: 20px; }
+    .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px; display: flex; align-items: center; }
+    .btn-logout:hover { color: var(--text-danger); }
+
+    #shell{display:flex;flex:1;min-height:0}
+    #sidebar{width:200px;flex-shrink:0;border-right:0.5px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:3px;transition:width .2s;background:#fff}
+    #sidebar.closed{width:40px;overflow:hidden}
+    .sb-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius);cursor:pointer;color:var(--text-secondary);border:0.5px solid var(--border);background:none;margin-bottom:6px;flex-shrink:0}
+    .sb-toggle:hover{background:var(--surface-1);color:var(--text-primary)}
+    .sb-head{font-size:10px;font-weight:500;color:var(--text-muted);letter-spacing:.05em;padding:3px 6px;margin-bottom:1px;white-space:nowrap}
+    .sb-item{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text-secondary);border:0.5px solid transparent;position:relative}
+    .sb-item:hover{background:var(--surface-1);color:var(--text-primary)}
+    .sb-item.active{background:var(--surface-1);color:var(--text-primary);border-color:var(--border)}
+    .sb-item .sb-icon{font-size:14px;flex-shrink:0}
+    .sb-item.script-item .sb-icon{color:#D85A30}
+    .sb-item.script-item{color:#D85A30}
+    .sb-item.script-item.active{background:#FAECE7;border-color:#F0997B}
+    .sb-item.script-item:hover{background:#FAECE7}
+    .sb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px}
+    .sb-dots{font-size:14px;color:var(--text-muted);padding:2px 3px;border-radius:3px;flex-shrink:0;line-height:1}
+    .sb-dots:hover{background:var(--border);color:var(--text-primary)}
+    .sb-new{display:flex;align-items:center;gap:5px;padding:6px 7px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text-accent);border:0.5px dashed var(--border-accent);margin-top:5px;white-space:nowrap}
+    .sb-new:hover{background:var(--bg-accent)}
+    .sb-divider{height:0.5px;background:var(--border);margin:5px 3px}
+    #sidebar.closed .sb-head,#sidebar.closed .sb-name,#sidebar.closed .sb-dots,#sidebar.closed .sb-new span,#sidebar.closed .sb-divider{display:none}
+    #sidebar.closed .sb-new{padding:6px;justify-content:center}
+    #sidebar.closed .sb-item{justify-content:center;padding:6px}
+    
+    #ctxMenu{position:absolute;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);padding:4px;z-index:200;min-width:150px;display:none}
+    #ctxMenu.open{display:block}
+    .ctx-item{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:13px;color:var(--text-primary);border-radius:4px;cursor:pointer}
+    .ctx-item:hover{background:var(--surface-1)}
+    .ctx-item.danger{color:var(--text-danger)}
+    .ctx-item.danger:hover{background:var(--bg-danger)}
+    
+    #main{flex:1;min-width:0;padding:1rem 1.25rem;overflow-y:auto}
+    .modal-overlay{background:rgba(0,0,0,.4);border-radius:12px;padding:2rem 1rem;display:flex;align-items:center;justify-content:center;min-height:340px;margin-bottom:1rem}
+    .modal-box{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.5rem;width:100%;max-width:380px}
+    .modal-box h3{font-size:16px;font-weight:500;color:var(--text-primary);margin-bottom:4px}
+    .modal-sub{font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem}
+    .mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem}
+    .mode-card{background:var(--surface-1);border:0.5px solid var(--border);border-radius:var(--radius);padding:1rem;cursor:pointer}
+    .mode-card:hover,.mode-card.sel{border-color:var(--border-accent);background:var(--bg-accent)}
+    .mode-card .mc-icon{font-size:20px;color:var(--text-accent);margin-bottom:5px}
+    .mode-card h4{font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:2px}
+    .mode-card p{font-size:11px;color:var(--text-secondary);line-height:1.5}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end}
+    .rename-box{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;width:100%;max-width:320px}
+    
+    .filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 10px;background:var(--surface-1);border-radius:var(--radius);border:0.5px solid var(--border);font-size:12px;color:var(--text-secondary);margin-bottom:.75rem}
+    .filter-row label{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text-primary)}
+    .simple-textarea{width:100%;min-height:260px;font-size:14px;line-height:1.8;font-family:var(--font-sans);color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:vertical;outline:none;margin-bottom:.75rem}
+    .simple-textarea:focus{border-color:var(--border-accent)}
+    
+    .top-bar{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap}
+    .icon-btn{font-size:12px;color:var(--text-muted);background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:4px 9px;cursor:pointer}
+    .icon-btn:hover{color:var(--text-primary);border-color:var(--border-strong)}
+    .speakers-bar{display:flex;gap:6px;margin-bottom:.6rem;flex-wrap:wrap;align-items:center}
+    .speaker-chip{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:0.5px solid transparent}
+    .speaker-chip.active{border-color:currentColor}
+    .speaker-chip:not(.active){opacity:.4}
+    .alt-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:.6rem}
+    
+    .line-container{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;transition: opacity 0.2s;}
+    .line-container.dragging { opacity: 0.4; background: var(--bg-accent); border-radius: var(--radius); }
+    .line{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2)}
+    .line:hover{border-color:var(--border-strong)}
+    .line.stage{background:var(--surface-1);border-style:dashed}
+    
+    .line-speaker{font-size:11px;font-weight:600;min-width:65px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;cursor:grab;border-radius:4px;background: rgba(0,0,0,0.03);text-align:center;}
+    .line-speaker:active{cursor:grabbing;}
+    .line-text{flex:1;font-size:13px;color:var(--text-primary);background:none;border:none;outline:none;resize:none;line-height:1.6;font-family:var(--font-sans);min-height:24px;overflow:hidden;word-break:break-all;white-space:pre-wrap;}
+    .line-text::placeholder{color:var(--text-muted)}
+    
+    .line-inline-actions{display:flex;gap:4px;align-items:center;padding-left:73px;flex-wrap:wrap}
+    .bs{background:var(--surface-1);border:0.5px solid var(--border);cursor:pointer;color:var(--text-secondary);font-size:11px;padding:3px 7px;border-radius:4px;display:inline-flex;align-items:center;gap:3px}
+    .bs:hover{background:var(--border);color:var(--text-primary)}
+    .bs.ac-change{background:var(--bg-accent);border-color:var(--border-accent);color:var(--text-accent);font-weight:500}
+    .bs.ac-change:hover{background:#dbeafe}
+    .bs.ac-danger{background:var(--bg-danger);border-color:var(--border-danger);color:var(--text-danger);}
+    .bs.ac-danger:hover{background:#fca5a5}
+    .bs.ac-add{background:#e1f5ee;border-color:#a7f3d0;color:#059669;font-weight:500}
+    .bs.ac-add:hover{background:#bbf7d0}
+    
+    .add-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--border);padding-top:12px;margin-top:12px}
+    .act-btn{font-size:12px;border-radius:var(--radius);padding:5px 12px;cursor:pointer;background:var(--surface-1);border:0.5px solid var(--border);color:var(--text-primary)}
+    .act-btn:hover{border-color:var(--border-strong)}
+    .act-btn.ac{background:none;border-color:var(--border-accent);color:var(--text-accent)}
+    .act-btn.ac:hover{background:var(--bg-accent)}
+    
+    .setup-wrap{max-width:380px}
+    .setup-wrap h3{font-size:16px;font-weight:500;color:var(--text-primary);margin-bottom:4px}
+    .setup-sub{font-size:13px;color:var(--text-secondary);margin-bottom:1rem}
+    .sp-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+    .sp-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+    .cdots{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+    .cdot{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+    .cdot.sel{border-color:var(--text-primary)}
+    .rm-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:2px}
+    .rm-btn:hover{color:var(--text-primary)}
+    .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;gap:10px;color:var(--text-muted);text-align:center}
+    .empty .ei{font-size:32px;margin-bottom:4px}
+    .empty p{font-size:14px}
+    #loading{position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.7);color:white;padding:5px 10px;border-radius:4px;font-size:11px;display:none;z-index:999;}
+  </style>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    // 🟢 提供していただいた Firebase 設定を埋め込みました
+    const firebaseConfig = {
+      apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
+      authDomain: "text-for-m.firebaseapp.com",
+      projectId: "text-for-m",
+      storageBucket: "text-for-m.firebasestorage.app",
+      messagingSenderId: "571493681203",
+      appId: "1:571493681203:web:d5b32a76f12e68aa9dfb46",
+      measurementId: "G-7SETWS5KG0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const scriptsCol = collection(db, "scripts");
+    const usersCol = collection(db, "users");
+
+    window.currentUser = null;
+    window.userData = null;
+    let unsubscribeScripts = null;
+
+    // Googleログイン処理
+    window.loginWithGoogle = async function() {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        alert("ログインに失敗しました: " + e.message);
+      }
+    };
+
+    // ログアウト処理
+    window.logout = async function() {
+      if(confirm("ログアウト（アカウント切り替え準備）をしますか？")) {
+        if(unsubscribeScripts) unsubscribeScripts();
+        await signOut(auth);
+        location.reload();
+      }
+    };
+
+    // 新規ユーザーの名前登録処理
+    window.registerUserName = async function() {
+      const nameInput = document.getElementById("regNameInput");
+      const name = nameInput ? nameInput.value.trim() : "";
+      if(!name) { alert("名前を入力してください。"); return; }
+      
+      document.getElementById('loading').style.display = 'block';
+      const uData = { uid: window.currentUser.uid, name: name, email: window.currentUser.email };
+      await setDoc(doc(usersCol, window.currentUser.uid), uData);
+      window.userData = uData;
+      document.getElementById('loading').style.display = 'none';
+      
+      initAppReady();
+    };
+
+    // ログイン状態の監視
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        window.currentUser = user;
+        // ユーザープロファイル（独自の名前）がFirestoreにあるかチェック
+        const userDoc = await getDoc(doc(usersCol, user.uid));
+        if (userDoc.exists()) {
+          window.userData = userDoc.data();
+          initAppReady();
+        } else {
+          // 未登録の場合は名前入力画面を出す
+          renderNameRegistration();
+        }
+      } else {
+        renderLoginView();
+      }
+    });
+
+    function renderLoginView() {
+      document.getElementById("auth-view").innerHTML = `
+        <div class="auth-card">
+          <h1>台本・文字数エディタ</h1>
+          <p>ご利用にはGoogleアカウントとの連携が必要です</p>
+          <button class="btn-google" onclick="loginWithGoogle()">
+            <i class="ti ti-brand-google" style="font-size:18px;color:#4285F4"></i>
+            Googleアカウントで連携・ログイン
+          </button>
+        </div>`;
+      document.getElementById("auth-view").style.display = "flex";
+      document.getElementById("app-content").style.display = "none";
+    }
+
+    function renderNameRegistration() {
+      document.getElementById("auth-view").innerHTML = `
+        <div class="auth-card">
+          <h1>新規ユーザー登録</h1>
+          <p>アプリ内で表示するお名前を入力してください</p>
+          <input type="text" id="regNameInput" placeholder="例：ユーザーA" maxlength="20" style="width:100%; padding:10px; border-radius:8px; border:0.5px solid var(--border); outline:none; margin-bottom:16px; font-size:14px;">
+          <button class="act-btn ac" onclick="registerUserName()" style="width:100%; padding:10px;">登録してはじめる</button>
+        </div>`;
+      document.getElementById("auth-view").style.display = "flex";
+      document.getElementById("app-content").style.display = "none";
+    }
+
+    // ログイン＆名前確認が完了した後のメイン初期化
+    function initAppReady() {
+      document.getElementById("auth-view").style.display = "none";
+      document.getElementById("app-content").style.display = "flex";
+      
+      document.getElementById("userNameLabel").textContent = window.userData.name;
+
+      // ログイン中ユーザーのデータ（userIdが一致するもの）だけをリアルタイム購読
+      const q = query(scriptsCol, where("userId", "==", window.currentUser.uid));
+      
+      unsubscribeScripts = onSnapshot(q, (snapshot) => {
+        let imported = [];
+        snapshot.forEach(doc => {
+          imported.push(doc.data());
+        });
+        window.projects = imported.sort((a,b) => a.id - b.id);
+        window.uid = window.projects.length ? Math.max(...window.projects.map(p => p.id)) + 1 : 1;
+        
+        if(!window.activeId && window.projects.length) {
+          window.activeId = window.projects[window.projects.length - 1].id;
+        }
+        window.renderSidebar();
+        if(window.activeId) {
+          window.openProject(window.activeId, true);
+        } else {
+          window.renderEmpty();
+        }
+      });
+    }
+
+    // 既存のセーブ・デリート処理にuserIdを付与
+    window.dbSave = async function(p) {
+      if(!p || !p.id || !window.currentUser) return;
+      document.getElementById('loading').style.display = 'block';
+      p.userId = window.currentUser.uid; // 必ず自分のUIDを紐付ける
+      const cleanData = JSON.parse(JSON.stringify(p));
+      await setDoc(doc(scriptsCol, String(p.id)), cleanData);
+      document.getElementById('loading').style.display = 'none';
+    };
+
+    window.dbDelete = async function(id) {
+      if(!window.currentUser) return;
+      document.getElementById('loading').style.display = 'block';
+      await deleteDoc(doc(scriptsCol, String(id)));
+      document.getElementById('loading').style.display = 'none';
+    };
+  </script>
+</head>
+<body>
+
+<div id="loading">通信中...</div>
+
+<div id="auth-view" class="auth-container"></div>
+
+<div id="app-content">
+  <h2 class="sr-only">台本・文字数カウンターエディタ</h2>
+  <div id="statbar">
+    <span class="sb-proj" id="barTitle">—</span>
+    <span class="sb-sep">|</span>
+    <div class="stat-chip">
+      <span class="sc-val" id="barAll">0</span>
+      <span class="sc-lbl">全体</span>
+    </div>
+    <div class="stat-chip ac">
+      <span class="sc-val" id="barFlt">0</span>
+      <span class="sc-lbl">記号抜き</span>
+    </div>
+    <div class="ml" id="barActions"></div>
+    
+    <div class="user-badge">
+      <i class="ti ti-user" aria-hidden="true"></i>
+      <span id="userNameLabel">—</span>
+    </div>
+    <button class="btn-logout" onclick="logout()" title="アカウント解除・ログアウト">
+      <i class="ti ti-logout"></i>
+    </button>
+  </div>
+
+  <div id="shell">
+    <div id="sidebar">
+      <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="サイドバーを開閉"><i class="ti ti-layout-sidebar-left-collapse" id="sbToggleIcon"></i></button>
+      <div class="sb-head">作品</div>
+      <div id="sbList"></div>
+      <div class="sb-divider"></div>
+      <div class="sb-new" onclick="openNewModal()">
+        <i class="ti ti-plus" style="font-size:14px"></i>
+        <span>新規作品</span>
+      </div>
+    </div>
+    <div id="ctxMenu">
+      <div class="ctx-item" id="ctxRename" onclick="ctxAction('rename')"><i class="ti ti-pencil" style="font-size:14px"></i> 名前を変更</div>
+      <div class="ctx-item" id="ctxCopy" onclick="ctxAction('copy')"><i class="ti ti-copy" style="font-size:14px"></i> 全文コピー</div>
+      <div class="ctx-item danger" onclick="ctxAction('delete')"><i class="ti ti-trash" style="font-size:14px"></i> 削除</div>
+    </div>
+    <div id="main"></div>
+  </div>
+</div>
+
+<script>
+const COLORS=[
+  {bg:'#E6F1FB',text:'#185FA5',name:'blue'},
+  {bg:'#EEEDFE',text:'#3C3489',name:'purple'},
+  {bg:'#E1F5EE',text:'#0F6E56',name:'teal'},
+  {bg:'#FAECE7',text:'#993C1D',name:'coral'},
+  {bg:'#FAEEDA',text:'#854F0B',name:'amber'},
+  {bg:'#FBEAF0',text:'#993556',name:'pink'},
+  {bg:'#EAF3DE',text:'#3B6D11',name:'green'},
+  {bg:'#F1EFE8',text:'#5F5E5A',name:'gray'},
+];
+const RE_SP=/[\s\u3000]/g;
+const RE_PU=/[。、！？…・〜ー]/g;
+const RE_SY=/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g;
+const RE_BR=/[「」『』【】〔〕〈〉《》（）｛｝()[\]{}<>]/g;
+
+window.projects = [];
+window.uid = 1;
+window.activeId = null;
+let sidebarOpen=true;
+let ctxTargetId=null;
+let newModalMode='script';
+
+let saveTimeout = null;
+function triggerSave(p) {
+  if(saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    if(window.dbSave) window.dbSave(p);
+  }, 800);
+}
+
+function eid(id){return document.getElementById(id)}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function truncTitle(s){return s ? (s.length>9?s.slice(0,9)+'…':s) : '無題'}
+function applyFilters(t,f){
+  let s=t;
+  if(f.space)s=s.replace(RE_SP,'');
+  if(f.punct)s=s.replace(RE_PU,'');
+  if(f.symbol)s=s.replace(RE_SY,'');
+  if(f.bracket)s=s.replace(RE_BR,'');
+  return s;
+}
+
+function autoResize(ta){
+  if (!ta) return;
+  ta.style.height='auto';
+  ta.style.height=ta.scrollHeight+'px';
+}
+
+function autoResizeAll() {
+  document.querySelectorAll('.line-text').forEach(ta => autoResize(ta));
+}
+
+function getProjectText(p){
+  if(p.mode==='simple')return p.text||'';
+  if(!p.lines)return '';
+  return p.lines.map(l=>l.text).join('');
+}
+function updateStatBar(p){
+  if(!p){eid('barTitle').textContent='—';eid('barAll').textContent='0';eid('barFlt').textContent='0';eid('barActions').innerHTML='';return;}
+  eid('barTitle').textContent=truncTitle(p.title);
+  const raw=getProjectText(p);
+  eid('barAll').textContent=raw.length.toLocaleString();
+  eid('barFlt').textContent=applyFilters(raw,p.filters).length.toLocaleString();
+  eid('barActions').innerHTML=`<button class="act-btn ac" onclick="exportCurrent()"><i class="ti ti-download" aria-hidden="true"></i> 出力</button>`;
+}
+
+function toggleSidebar(){
+  sidebarOpen=!sidebarOpen;
+  eid('sidebar').classList.toggle('closed',!sidebarOpen);
+  eid('sbToggleIcon').className=sidebarOpen?'ti ti-layout-sidebar-left-collapse':'ti ti-layout-sidebar-left-expand';
+}
+
+window.renderSidebar = function(){
+  const list=eid('sbList');if(!list)return;list.innerHTML='';
+  window.projects.forEach(p=>{
+    const div=document.createElement('div');
+    const isScript=p.mode==='script';
+    div.className='sb-item'+(isScript?' script-item':'')+(window.activeId===p.id?' active':'');
+    const icon=isScript?'ti-file-text':'ti-text-size';
+    div.innerHTML=`<i class="ti ${icon} sb-icon" aria-hidden="true"></i>
+      <span class="sb-name">${escH(truncTitle(p.title))}</span>
+      <span class="sb-dots" onclick="openCtxMenu(event,${p.id})" title="編集メニュー">···</span>`;
+    div.addEventListener('click',e=>{if(!e.target.closest('.sb-dots'))openProject(p.id);});
+    list.appendChild(div);
+  });
+}
+
+function openCtxMenu(e,id){
+  e.stopPropagation();
+  ctxTargetId=id;
+  const menu=eid('ctxMenu');
+  menu.classList.add('open');
+  const rect=e.target.getBoundingClientRect();
+  const shellRect=eid('shell').getBoundingClientRect();
+  menu.style.left=(rect.left-shellRect.left+20)+'px';
+  menu.style.top=(rect.top-shellRect.top+20)+'px';
+}
+function closeCtxMenu(){eid('ctxMenu').classList.remove('open');ctxTargetId=null;}
+document.addEventListener('click',()=>closeCtxMenu());
+eid('ctxMenu').addEventListener('click',e=>e.stopPropagation());
+
+function ctxAction(action){
+  const p=window.projects.find(x=>x.id===ctxTargetId);
+  closeCtxMenu();
+  if(!p)return;
+  if(action==='rename') openRenameModal(p);
+  else if(action==='copy') copyProjectText(p);
+  else if(action==='delete') confirmDelete(p);
+}
+
+function openRenameModal(p){
+  eid('main').innerHTML=`
+  <div class="modal-overlay">
+    <div class="rename-box">
+      <h3 style="margin-bottom:10px">名前を変更</h3>
+      <input type="text" id="renameInput" value="${escH(p.title)}" maxlength="30" style="width:100%;margin-bottom:12px">
+      <div class="modal-actions">
+        <button class="act-btn" onclick="openProject(${p.id})">キャンセル</button>
+        <button class="act-btn ac" onclick="doRename(${p.id})">変更</button>
+      </div>
+    </div>
+  </div>`;
+  const inp=eid('renameInput');
+  inp.focus();inp.select();
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doRename(p.id);if(e.key==='Escape')openProject(p.id);});
+}
+function doRename(id){
+  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  const v=eid('renameInput');if(!v)return;
+  p.title=v.value.trim()||p.title;
+  if(window.dbSave) window.dbSave(p);
+  window.renderSidebar();updateStatBar(p);openProject(id);
+}
+
+function copyProjectText(p){
+  let text='';
+  if(p.mode==='simple'){text=p.text||'';}
+  else if(p.lines){p.lines.forEach(l=>{if(l.type==='stage')text+=`（${l.text}）\n`;else{const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];text+=`${sp.name}「${l.text}」\n`;}});}
+  navigator.clipboard.writeText(text).catch(()=>{});
+}
+
+function confirmDelete(p){
+  eid('main').innerHTML=`
+  <div class="modal-overlay">
+    <div class="rename-box">
+      <h3 style="margin-bottom:8px">「${escH(truncTitle(p.title))}」を削除しますか？</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">この操作は取り消せません。</p>
+      <div class="modal-actions">
+        <button class="act-btn" onclick="openProject(${p.id})">キャンセル</button>
+        <button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger)" onclick="doDelete(${p.id})"><i class="ti ti-trash" aria-hidden="true"></i> 削除する</button>
+      </div>
+    </div>
+  </div>`;
+}
+function doDelete(id){
+  if(window.dbDelete) window.dbDelete(id);
+  window.projects=window.projects.filter(p=>p.id!==id);
+  if(window.activeId===id)window.activeId=window.projects.length?window.projects[window.projects.length-1].id:null;
+  window.renderSidebar();
+  if(window.activeId)openProject(window.activeId);else renderEmpty();
+}
+
+function openNewModal(){
+  newModalMode='script';
+  eid('main').innerHTML=`
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <h3>新規作品</h3>
+      <p class="modal-sub">モードを選んでください</p>
+      <div class="mode-cards">
+        <div class="mode-card sel" id="mc-script" onclick="selectNewMode('script')">
+          <div class="mc-icon"><i class="ti ti-users" aria-hidden="true"></i></div>
+          <h4>台本モード</h4>
+          <p>話者ごとにセリフを管理</p>
+        </div>
+        <div class="mode-card" id="mc-simple" onclick="selectNewMode('simple')">
+          <div class="mc-icon"><i class="ti ti-text-size" aria-hidden="true"></i></div>
+          <h4>シンプルモード</h4>
+          <p>自由入力＋文字数カウント</p>
+        </div>
+      </div>
+      <div style="margin-bottom:1rem">
+        <input type="text" id="newTitle" placeholder="作品名（例：新ネタ）" maxlength="30" style="width: 100%; padding: 6px 10px; border-radius: var(--radius); border: 0.5px solid var(--border); outline: none;">
+      </div>
+      <div class="modal-actions">
+        <button class="act-btn" onclick="${window.projects.length?'openProject('+(window.activeId||window.projects[0].id)+')':'renderEmpty()'}">キャンセル</button>
+        <button class="act-btn ac" onclick="createProject()">作成</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>{const el=eid('newTitle');if(el)el.focus();},50);
+}
+function selectNewMode(m){
+  newModalMode=m;
+  ['script','simple'].forEach(x=>{const el=eid('mc-'+x);if(el)el.classList.toggle('sel',x===m);});
+}
+function createProject(){
+  const titleEl=eid('newTitle');
+  const title=(titleEl?titleEl.value.trim():'')||'無題';
+  const p={id:window.uid++,title,mode:newModalMode,filters:{space:true,punct:true,symbol:true,bracket:true}};
+  if(newModalMode==='script'){
+    p.setupRows=[{id:window.uid++,name:'',color:COLORS[0]},{id:window.uid++,name:'',color:COLORS[2]}];
+    p.speakers=null;p.lines=null;p.activeSpId=null;p.altMode=true;
+  } else {p.text='';}
+  window.projects.push(p);window.activeId=p.id;
+  if(window.dbSave) window.dbSave(p);
+  window.renderSidebar();updateStatBar(p);
+  if(newModalMode==='script')renderSetup(p);else renderSimple(p);
+}
+
+window.openProject = function(id, fromFirebase = false){
+  if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
+    const activeP = window.projects.find(x=>x.id===id);
+    if(activeP) updateStatBar(activeP);
+    return;
+  }
+
+  window.activeId=id;window.renderSidebar();
+  const p=window.projects.find(x=>x.id===id);
+  if(!p)return renderEmpty();
+  updateStatBar(p);
+  if(p.mode==='simple')renderSimple(p);
+  else if(p.speakers)renderScriptEditor(p);
+  else renderSetup(p);
+}
+window.renderEmpty = function(){
+  window.activeId=null;updateStatBar(null);
+  eid('main').innerHTML=`<div class="empty"><div class="ei"><i class="ti ti-file-plus" aria-hidden="true"></i></div><p>左下の「新規作品」から作品を追加してください</p></div>`;
+}
+
+/* SIMPLE */
+function renderSimple(p){
+  eid('main').innerHTML=`
+  <div class="top-bar"><span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span></div>
+  <div class="filter-row">
+    <span>除外：</span>
+    <label><input type="checkbox" id="fSp" ${p.filters.space?'checked':''} onchange="simFilter(${p.id})"> 空白・改行</label>
+    <label><input type="checkbox" id="fPu" ${p.filters.punct?'checked':''} onchange="simFilter(${p.id})"> 句読点・記号</label>
+    <label><input type="checkbox" id="fSy" ${p.filters.symbol?'checked':''} onchange="simFilter(${p.id})"> 英数字記号</label>
+    <label><input type="checkbox" id="fBr" ${p.filters.bracket?'checked':''} onchange="simFilter(${p.id})"> 括弧類</label>
+  </div>
+  <textarea class="simple-textarea" id="simTA" placeholder="ここにテキストを入力...">${escH(p.text)}</textarea>
+  <div class="add-bar">
+    <button class="act-btn" onclick="clearSim(${p.id})"><i class="ti ti-trash" aria-hidden="true"></i> クリア</button>
+  </div>`;
+  const ta=eid('simTA');
+  ta.addEventListener('input',e=>{p.text=e.target.value;triggerSave(p);updateStatBar(p);});
+}
+function simFilter(id){
+  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  p.filters={space:eid('fSp').checked,punct:eid('fPu').checked,symbol:eid('fSy').checked,bracket:eid('fBr').checked};
+  if(window.dbSave) window.dbSave(p);
+  updateStatBar(p);
+}
+function clearSim(id){
+  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  p.text='';const ta=eid('simTA');if(ta)ta.value='';if(window.dbSave) window.dbSave(p);updateStatBar(p);
+}
+
+/* SETUP */
+function renderSetup(p){
+  eid('main').innerHTML=`<div class="setup-wrap">
+    <h3>${escH(p.title)} — 登場人物の設定</h3>
+    <p class="setup-sub">名前と色を決めてください</p>
+    <div id="spList"></div>
+    <div style="margin-bottom:1rem">
+      <button class="act-btn" onclick="addSpRow(${p.id})"><i class="ti ti-plus" aria-hidden="true"></i> 話者を追加</button>
+    </div>
+    <button class="act-btn ac" onclick="startScript(${p.id})">台本を書きはじめる</button>
+  </div>`;
+  renderSpRows(p);
+}
+function renderSpRows(p){
+  const list=eid('spList');if(!list)return;list.innerHTML='';
+  p.setupRows.forEach(row=>{
+    const div=document.createElement('div');
+    div.innerHTML=`<div class="sp-row">
+      <div class="sp-dot" style="background:${row.color.bg};border:2px solid ${row.color.text}"></div>
+      <input type="text" placeholder="名前（例：田中）" value="${escH(row.name)}" maxlength="10" id="sn${row.id}" style="flex:1; padding: 4px 8px; border-radius: 4px; border: 0.5px solid var(--border); outline: none;">
+      ${p.setupRows.length>2?`<button class="rm-btn" onclick="rmSpRow(${p.id},${row.id})"><i class="ti ti-x"></i></button>`:''}
+    </div>
+    <div class="cdots" id="cd${row.id}"></div>`;
+    list.appendChild(div);
+    const dots=eid('cd'+row.id);
+    COLORS.forEach(c=>{
+      const d=document.createElement('div');
+      d.className='cdot'+(row.color.name===c.name?' sel':'');
+      d.style.background=c.bg;d.style.borderColor=row.color.name===c.name?c.text:'transparent';
+      d.onclick=()=>{row.color=c;if(window.dbSave) window.dbSave(p);renderSpRows(p);};
+      dots.appendChild(d);
+    });
+    eid('sn'+row.id).addEventListener('input',e=>{row.name=e.target.value;triggerSave(p);});
+  });
+}
+function addSpRow(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.setupRows.push({id:window.uid++,name:'',color:COLORS[p.setupRows.length%COLORS.length]});if(window.dbSave) window.dbSave(p);renderSpRows(p);}
+function rmSpRow(pid,rid){const p=window.projects.find(x=>x.id===pid);if(!p||p.setupRows.length<=2)return;p.setupRows=p.setupRows.filter(r=>r.id!==rid);if(window.dbSave) window.dbSave(p);renderSpRows(p);}
+function startScript(pid){
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value.trim();});
+  p.speakers=p.setupRows.map(r=>({id:r.id,name:r.name||'話者'+r.id,color:r.color}));
+  p.lines=[{id:window.uid++,type:'line',speakerId:p.speakers[0].id,text:''}];
+  p.activeSpId=p.speakers[0].id;
+  if(window.dbSave) window.dbSave(p);
+  renderScriptEditor(p);
+}
+
+/* SCRIPT EDITOR */
+function renderScriptEditor(p){
+  eid('main').innerHTML=`
+  <div class="top-bar">
+    <span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span>
+    <button class="icon-btn" onclick="renderSetup(window.projects.find(x=>x.id==${p.id}))"><i class="ti ti-settings" aria-hidden="true"></i> 話者設定</button>
+  </div>
+  <div class="filter-row">
+    <span>除外：</span>
+    <label><input type="checkbox" id="sfSp" ${p.filters.space?'checked':''} onchange="scFilter(${p.id})"> 空白・改行</label>
+    <label><input type="checkbox" id="sfPu" ${p.filters.punct?'checked':''} onchange="scFilter(${p.id})"> 句読点・記号</label>
+    <label><input type="checkbox" id="sfSy" ${p.filters.symbol?'checked':''} onchange="changeFilter(${p.id},'symbol',this.checked)"> 英数字記号</label>
+    <label><input type="checkbox" id="sfBr" ${p.filters.bracket?'checked':''} onchange="changeFilter(${p.id},'bracket',this.checked)"> 括弧類</label>
+  </div>
+  <div class="speakers-bar" id="spBar"></div>
+  <div class="alt-toggle">
+    <input type="checkbox" id="altM" ${p.altMode?'checked':''} onchange="window.projects.find(x=>x.id==${p.id}).altMode=this.checked; if(window.dbSave) window.dbSave(window.projects.find(x=>x.id==${p.id}));">
+    <label for="altM">追加時に話者を自動で交互に切り替える</label>
+  </div>
+  <div class="lines" id="linesList"></div>
+  <div class="add-bar">
+    <span style="font-size:12px;color:var(--text-muted)">末尾に追加：</span>
+    <button class="act-btn" onclick="addLine(${p.id})"><i class="ti ti-plus" aria-hidden="true"></i> セリフ追加</button>
+    <button class="act-btn" onclick="addStage(${p.id})"><i class="ti ti-brackets" aria-hidden="true"></i> ト書き</button>
+  </div>`;
+  renderSpBar(p);renderLines(p);
+}
+function scFilter(pid){
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  p.filters={space:eid('sfSp').checked,punct:eid('sfPu').checked,symbol:eid('sfSy').checked,bracket:eid('sfBr').checked};
+  if(window.dbSave) window.dbSave(p);
+  updateStatBar(p);
+}
+function changeFilter(pid,type,val){
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  p.filters[type]=val;if(window.dbSave) window.dbSave(p);updateStatBar(p);
+}
+function renderSpBar(p){
+  const bar=eid('spBar');if(!bar)return;bar.innerHTML='';
+  p.speakers.forEach(s=>{
+    const c=document.createElement('div');
+    c.className='speaker-chip'+(p.activeSpId===s.id?' active':'');
+    c.style.background=s.color.bg;c.style.color=s.color.text;
+    c.textContent=s.name;c.onclick=()=>{p.activeSpId=s.id;if(window.dbSave) window.dbSave(p);renderSpBar(p);};
+    bar.appendChild(c);
+  });
+}
+function getNextSpId(p, targetIndex = null){
+  if(!p.altMode)return p.activeSpId;
+  let baseLine = null;
+  if (targetIndex !== null) {
+    for (let i = targetIndex; i >= 0; i--) {
+      if (p.lines[i] && p.lines[i].type === 'line') {
+        baseLine = p.lines[i];
+        break;
+      }
+    }
+  } else {
+    const ls=p.lines.filter(l=>l.type==='line');
+    if(ls.length) baseLine = ls[ls.length-1];
+  }
+  if(!baseLine) return p.speakers[0].id;
+  const idx=p.speakers.findIndex(s=>s.id===baseLine.speakerId);
+  return p.speakers[(idx+1)%p.speakers.length].id;
+}
+
+function addLine(pid){
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const sid=getNextSpId(p);p.activeSpId=sid;
+  p.lines.push({id:window.uid++,type:'line',speakerId:sid,text:''});
+  if(window.dbSave) window.dbSave(p);
+  renderSpBar(p);renderLines(p);
+  setTimeout(()=>{
+    const ts=document.querySelectorAll('.line-text');
+    if(ts.length){
+      const target=ts[ts.length-1]; 
+      target.focus(); 
+      autoResizeAll();
+    }
+  },30);
+}
+function insertLineAfter(pid, index) {
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const sid=getNextSpId(p, index); p.activeSpId=sid;
+  p.lines.splice(index + 1, 0, {id:window.uid++,type:'line',speakerId:sid,text:''});
+  if(window.dbSave) window.dbSave(p);
+  renderSpBar(p);renderLines(p);
+  setTimeout(()=>{
+    const containers = document.querySelectorAll('.line-container');
+    if(containers[index + 1]) {
+      const ta = containers[index + 1].querySelector('.line-text');
+      if(ta) { 
+        ta.focus(); 
+        autoResizeAll();
+      }
+    }
+  },30);
+}
+function insertStageAfter(pid, index) {
+  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  p.lines.splice(index + 1, 0, {id:window.uid++,type:'stage',text:''});
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+  setTimeout(()=>{
+    const containers = document.querySelectorAll('.line-container');
+    if(containers[index + 1]) {
+      const ta = containers[index + 1].querySelector('.line-text');
+      if(ta) { 
+        ta.focus(); 
+        autoResizeAll();
+      }
+    }
+  },30);
+}
+
+function addStage(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.lines.push({id:window.uid++,type:'stage',text:''});if(window.dbSave) window.dbSave(p);renderLines(p);}
+
+function delLine(pid,i){
+  const p=window.projects.find(x=>x.id===pid);if(!p||p.lines.length<=1)return;
+  if (confirm("この行（セリフ・ト書き）を削除してもよろしいですか？")) {
+    p.lines.splice(i,1);
+    if(window.dbSave) window.dbSave(p);
+    renderLines(p);
+  }
+}
+
+function cycleSpk(pid,i){const p=window.projects.find(x=>x.id===pid);if(!p)return;const l=p.lines[i];if(l.type==='stage') return;const idx=p.speakers.findIndex(s=>s.id===l.speakerId);l.speakerId=p.speakers[(idx+1)%p.speakers.length].id;if(window.dbSave) window.dbSave(p);renderLines(p);}
+
+let dragStartIndex = null;
+function handleDragStart(e, index) {
+  dragStartIndex = index;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function handleDragOver(e, index) {
+  e.preventDefault();
+}
+function handleDragDrop(pid, index) {
+  if (dragStartIndex === null || dragStartIndex === index) return;
+  const p = window.projects.find(x => x.id === pid);
+  if (!p) return;
+  
+  const draggedItem = p.lines.splice(dragStartIndex, 1)[0];
+  p.lines.splice(index, 0, draggedItem);
+  
+  if (window.dbSave) window.dbSave(p);
+  renderLines(p);
+  dragStartIndex = null;
+}
+function handleDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  dragStartIndex = null;
+}
+
+function renderLines(p){
+  const list=eid('linesList');if(!list)return;list.innerHTML='';
+  p.lines.forEach((l,i)=>{
+    const container = document.createElement('div');
+    container.className = 'line-container';
+    container.draggable = true;
+    
+    container.addEventListener('dragstart', (e) => handleDragStart(e, i));
+    container.addEventListener('dragover', (e) => handleDragOver(e, i));
+    container.addEventListener('drop', () => handleDragDrop(p.id, i));
+    container.addEventListener('dragend', handleDragEnd);
+
+    const div=document.createElement('div');
+    if(l.type==='stage'){
+      div.className='line stage';
+      div.innerHTML=`<span class="line-speaker" style="color:var(--text-muted);font-style:italic" title="ドラッグして並び替え">ト書き</span>
+        <textarea class="line-text" rows="1" placeholder="（状況説明）" style="font-style:italic;color:var(--text-secondary)">${escH(l.text)}</textarea>`;
+      
+      const actionRow = document.createElement('div');
+      actionRow.className = 'line-inline-actions';
+      actionRow.innerHTML = `
+        <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
+        <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
+      
+      container.appendChild(div);
+      container.appendChild(actionRow);
+    } else {
+      const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];
+      div.className='line';div.style.borderLeftWidth='3px';div.style.borderLeftColor=sp.color.text;
+      div.innerHTML=`<span class="line-speaker" style="color:${sp.color.text}; background:${sp.color.bg}" title="ドラッグして並び替え">${escH(sp.name)}</span>
+        <textarea class="line-text" rows="1" placeholder="セリフを入力...">${escH(l.text)}</textarea>`;
+      
+      const actionRow = document.createElement('div');
+      actionRow.className = 'line-inline-actions';
+      actionRow.innerHTML = `
+        <button class="bs ac-change" onclick="cycleSpk(${p.id},${i})" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
+        <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
+        <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
+      
+      container.appendChild(div);
+      container.appendChild(actionRow);
+    }
+    
+    const ta=div.querySelector('textarea');
+    ta.addEventListener('input',e=>{
+      l.text=e.target.value; 
+      triggerSave(p); 
+      autoResize(e.target); 
+      updateStatBar(p);
+    });
+    
+    ta.addEventListener('keydown',e=>{
+      if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){
+        e.preventDefault();
+        insertLineAfter(p.id, i);
+      }
+      else if(e.key==='Enter'){
+        setTimeout(() => autoResize(e.target), 10);
+      }
+    });
+    
+    list.appendChild(container);
+  });
+
+  autoResizeAll();
+  setTimeout(() => { autoResizeAll(); }, 50);
+  updateStatBar(p);
+}
+
+function exportCurrent(){
+  const p=window.projects.find(x=>x.id===window.activeId);if(!p)return;
+  if(p.mode==='simple'){
+    const blob=new Blob([p.text],{type:'text/plain'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.title||'テキスト')+'.txt';a.click();
+  } else if(p.lines){
+    let out='';
+    p.lines.forEach(l=>{if(l.type==='stage')out+=`（${l.text}）\n`;else{const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];out+=`${sp.name}「${l.text}」\n`;}});
+    const blob=new Blob([out],{type:'text/plain'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.title||'台本')+'.txt';a.click();
+  }
+}
+</script>
+</body>
+</html>
