@@ -153,7 +153,6 @@
     .id-copy-btn { font-size: 10px; padding: 2px 6px; background: var(--surface-1); border: 0.5px solid var(--border); border-radius: 4px; cursor: pointer; margin-left: 6px;}
     .share-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 0.5px solid var(--surface-1); cursor: pointer; }
 
-    /* 💡 修正案サイドバー関連のスタイル */
     #proposal-sidebar { position: absolute; top: 0; right: -280px; width: 280px; height: 100%; background: #fff; border-left: 1px solid var(--border); box-shadow: -2px 0 8px rgba(0,0,0,0.05); z-index: 100; display: flex; flex-direction: column; transition: right 0.25s ease; }
     #proposal-sidebar.open { right: 0; }
     .ps-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fff7ed; border-bottom: 0.5px solid var(--border); font-size: 13px; font-weight: 600; color: #ea580c; }
@@ -190,6 +189,7 @@
     window.currentUser = null;
     window.userData = null;
     let unsubscribeScripts = null;
+    let isFirstLoad = true; // ✨ 無限ループ防止用のフラグ
 
     window.loginWithGoogle = async function() {
       const provider = new GoogleAuthProvider();
@@ -249,14 +249,22 @@
         window.projects = imported.sort((a,b) => a.id - b.id);
         window.uid = window.projects.length ? Math.max(...window.projects.map(p => p.id), ...window.projects.flatMap(p => p.lines ? p.lines.map(l => l.id) : [])) + 1 : 1;
         
-        if(!window.activeId && window.projects.length) {
-          window.activeId = window.projects[window.projects.length - 1].id;
-        }
         window.renderSidebar();
-        if(window.activeId) {
+
+        // ✨ 画面表示の無限ループをここで回避
+        if (isFirstLoad) {
+          isFirstLoad = false;
+          if(!window.activeId && window.projects.length) {
+            window.activeId = window.projects[window.projects.length - 1].id;
+          }
+          if(window.activeId) {
+            window.openProject(window.activeId, false);
+          } else {
+            window.renderEmpty();
+          }
+        } else if (window.activeId) {
+          // すでに開いている場合は、入力中のカーソルが外れないように「静かに更新」する
           window.openProject(window.activeId, true);
-        } else {
-          window.renderEmpty();
         }
       });
     }
@@ -421,7 +429,7 @@ window.activeId = null;
 let sidebarOpen=true;
 let ctxTargetId=null;
 let newModalMode='script';
-let activeLineProposalId = null; // 現在どの行の修正案サイドバーを開いているか
+let activeLineProposalId = null;
 
 let saveTimeout = null;
 function triggerSave(p) {
@@ -689,6 +697,7 @@ function createProject(){
 }
 
 window.openProject = function(id, fromFirebase = false){
+  // Firebaseのバックグラウンド更新かつ、テキスト入力中の場合は、中身を再描画せず上部カウンター類だけ更新
   if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
     const activeP = window.projects.find(x=>x.id===id);
     if(activeP) {
@@ -697,7 +706,7 @@ window.openProject = function(id, fromFirebase = false){
     }
     return;
   }
-  window.activeId=id;window.renderSidebar();
+  window.activeId=id;
   const p=window.projects.find(x=>x.id===id);
   if(!p)return renderEmpty();
   updateStatBar(p);
@@ -705,7 +714,7 @@ window.openProject = function(id, fromFirebase = false){
   else if(p.speakers)renderScriptEditor(p);
   else renderSetup(p);
   
-  if(activeLineProposalId) closeProposalSidebar();
+  if(!fromFirebase && activeLineProposalId) closeProposalSidebar();
 }
 window.renderEmpty = function(){
   window.activeId=null;updateStatBar(null);
@@ -728,7 +737,7 @@ function renderSimple(p){
     <button class="act-btn" onclick="clearSim(${p.id})"><i class="ti ti-trash" aria-hidden="true"></i> クリア</button>
   </div>`;
   const ta=eid('simTA');
-  ta.addEventListener('input',e=>{p.text=e.target.value;triggerSave(p);updateStatBar(p);});
+  ta.addEventListener('input', e=>{p.text=e.target.value;triggerSave(p);updateStatBar(p);});
 }
 function simFilter(id){
   const p=window.projects.find(x=>x.id===id);if(!p)return;
@@ -972,11 +981,10 @@ function renderLines(p){
   });
 
   autoResizeAll();
-  setTimeout(() => { autoResizeAll(); }, 50);
   updateStatBar(p);
 }
 
-/* 💡 修正案サイドバーの操作・描画ロジック */
+/* 修正案サイドバーの操作・描画ロジック */
 window.openProposalSidebarForLine = function(pid, lineId) {
   activeLineProposalId = lineId;
   const p = window.projects.find(x => x.id === pid); if (!p) return;
@@ -1029,7 +1037,7 @@ window.addNewProposal = function(pid, lineId) {
   const line = p.lines.find(l => l.id === lineId); if (!line) return;
   
   line.proposals.push({
-    text: line.text, // 現在の本文を初期コピー
+    text: line.text,
     userId: window.currentUser.uid,
     userName: window.userData.name,
     createdAt: Date.now()
@@ -1037,7 +1045,7 @@ window.addNewProposal = function(pid, lineId) {
   
   window.dbSave(p);
   renderProposalSidebarContent(p, lineId);
-  renderLines(p); // 本文側のバッジ数更新
+  renderLines(p);
 };
 
 window.updateProposalText = function(pid, lineId, index, newText) {
@@ -1067,9 +1075,9 @@ window.applyProposalToLine = function(pid, lineId, index) {
   if (!prop) return;
 
   if (confirm(`この修正案で本文のテキストを上書き採用しますか？\n「${prop.text}」`)) {
-    line.text = prop.text; // 本文を上書き
+    line.text = prop.text;
     window.dbSave(p);
-    renderLines(p); // メイン画面を再描画
+    renderLines(p);
     alert("本文を修正案に書き換えました！");
   }
 };
