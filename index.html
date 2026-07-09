@@ -556,11 +556,32 @@
       await window.dbSave(p);
       window.openShareModal();
     };
-️
+
+    /* 所有者側: 承認済みの招待を取り込み、sharedWith に反映して招待を削除 */
+    async function syncApprovedShareInvites() {
+      try {
+        const snap = await ggd(gq(sharesCol, gw("ownerUid", "==", window.currentUser.uid)));
+        for (const d of snap.docs) {
+          const inv = d.data();
+          if(inv.status === 'approved') {
+            const p = window.projects.find(x => String(x.id) === String(inv.scriptId));
+            if(p) {
+              if(!p.sharedWith) p.sharedWith = [];
+              if(!p.sharedWith.includes(inv.to)) {
+                p.sharedWith.push(inv.to);
+                await window.dbSave(p);
+              }
+            }
+            await gdd(gd(sharesCol, d.id));
+          }
+        }
+      } catch(e) { console.error("共有招待同期エラー:", e); }
+    }
+
     /* 共有設定モーダル用: この作品への保留中の招待を取得して行を描画させる */
     window.fetchShareInvitesForScript = async function(scriptId) {
       try {
-        // 修正: 不要になった所有者側の古い同期処理(syncApprovedShareInvites)の呼び出しを削除
+        await syncApprovedShareInvites();
         const snap = await ggd(gq(sharesCol, gw("ownerUid", "==", window.currentUser.uid)));
         const map = {};
         snap.forEach(d => {
@@ -590,53 +611,12 @@
       }
     };
 
-    /* 新実装: 受信側が共有を承認する処理
-       招待をapprovedにした直後、フレンド側の権限で台本のsharedWithに自分を追加し、最後に招待状を削除（ゴミ掃除）する */
     window.approveShareInvite = async function(inviteId) {
       document.getElementById('loading').style.display = 'block';
-      try {
-        // 1. まず招待状のステータスを 'approved' に更新（セキュリティルールの検証を通すため必須）
-        await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
-        
-        // 2. 招待状のデータを取得して台本ID（scriptId）を特定する
-        const inviteSnap = await gg(gd(sharesCol, inviteId));
-        if (!inviteSnap.exists()) {
-          document.getElementById('loading').style.display = 'none';
-          return alert("招待データが見つかりませんでした。");
-        }
-        const inv = inviteSnap.data();
-        
-        // 3. 対象の台本ドキュメントを取得する
-        const scriptRef = gd(scriptsCol, String(inv.scriptId));
-        const scriptSnap = await gg(scriptRef);
-        if (!scriptSnap.exists()) {
-          document.getElementById('loading').style.display = 'none';
-          return alert("対象の作品（台本）が見つかりませんでした。すでに削除された可能性があります。");
-        }
-        
-        const scriptData = scriptSnap.data();
-        if (!scriptData.sharedWith) scriptData.sharedWith = [];
-        
-        // 4. まだ自分が sharedWith に入っていなければ、自分自身を追加して台本をマージ更新（セキュリティルールで保護）
-        if (!scriptData.sharedWith.includes(window.currentUser.uid)) {
-          scriptData.sharedWith.push(window.currentUser.uid);
-          await gs(scriptRef, { sharedWith: scriptData.sharedWith }, { merge: true });
-        }
-        
-        // 5. 反映が完了したので、使用済みの招待ドキュメントを削除（不要コードのゴミ掃除）
-        await gdd(gd(sharesCol, inviteId));
-        
-        document.getElementById('loading').style.display = 'none';
-        alert("作品の共有を承認しました！作品一覧に追加されます。");
-        
-        // 招待一覧を再読み込み
-        window.loadShareInvites();
-        
-      } catch(e) {
-        console.error("共有承認エラー:", e);
-        document.getElementById('loading').style.display = 'none';
-        alert("承認処理に失敗しました。ルールで拒否されたか、ネットワークエラーです: " + e.message);
-      }
+      await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
+      document.getElementById('loading').style.display = 'none';
+      alert("共有をOKしました！\n相手がアプリを開いたタイミングで、あなたの作品一覧にも追加されます。");
+      window.loadShareInvites();
     };
 
     window.declineShareInvite = async function(inviteId) {
@@ -645,7 +625,6 @@
       window.loadShareInvites();
     };
 
-️
     window.dbSave = async function(p) {
       if(!p || !p.id || !window.currentUser) return;
       document.getElementById('loading').style.display = 'block';
