@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台本・文字数カウンターエディタ (修正案・共同編集版)</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  
+  <title>台本・文字数カウンターエディタ (安定版)</title>
+  <!-- 修正: @latest → バージョン固定（表示崩れ防止） -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/dist/tabler-icons.min.css">
+
   <style>
     :root {
       --surface-1: #f3f4f6; --surface-2: #ffffff;
@@ -21,14 +22,14 @@
     body{font-family:var(--font-sans);background:#f9fafb}
     #root{display:flex;flex-direction:column;min-height:100vh}
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
-    
+
     .auth-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
     .auth-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .auth-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
     .auth-card p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
     .btn-google { background: #fff; color: #757575; border: 0.5px solid var(--border); padding: 10px 16px; border-radius: var(--radius); font-weight: 500; font-size: 14px; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; }
     .btn-google:hover { background: var(--surface-1); }
-    
+
     #app-content { display: none; flex-direction: column; flex: 1; min-height: 0; }
     #statbar{display:flex;align-items:center;gap:12px;padding:7px 14px;background:var(--surface-1);border-bottom:0.5px solid var(--border);font-size:13px;flex-shrink:0}
     #statbar .sb-proj{font-weight:500;color:var(--text-primary);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -39,7 +40,7 @@
     .stat-chip.ac .sc-val{color:var(--text-accent)}
     .stat-chip.ac .sc-lbl{color:var(--text-accent)}
     #statbar .ml{margin-left:auto;display:flex;gap:8px;align-items:center}
-    
+
     .user-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); background: #fff; border: 0.5px solid var(--border); padding: 3px 12px; border-radius: 20px; cursor: pointer; }
     .user-badge:hover { background: var(--bg-accent); border-color: var(--border-accent); }
     .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px; display: flex; align-items: center; }
@@ -68,14 +69,14 @@
     #sidebar.closed .sb-head,#sidebar.closed .sb-name,#sidebar.closed .sb-dots,#sidebar.closed .sb-new span,#sidebar.closed .sb-divider{display:none}
     #sidebar.closed .sb-new{padding:6px;justify-content:center}
     #sidebar.closed .sb-item{justify-content:center;padding:6px}
-    
+
     #ctxMenu{position:absolute;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);padding:4px;z-index:200;min-width:150px;display:none}
     #ctxMenu.open{display:block}
     .ctx-item{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:13px;color:var(--text-primary);border-radius:4px;cursor:pointer}
     .ctx-item:hover{background:var(--surface-1)}
     .ctx-item.danger{color:var(--text-danger)}
     .ctx-item.danger:hover{background:var(--bg-danger)}
-    
+
     #main{flex:1;min-width:0;padding:1rem 1.25rem;overflow-y:auto}
     .modal-overlay{background:rgba(0,0,0,.4);border-radius:12px;padding:2rem 1rem;display:flex;align-items:center;justify-content:center;min-height:340px;margin-bottom:1rem}
     .modal-box{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.5rem;width:100%;max-width:380px}
@@ -89,12 +90,12 @@
     .mode-card p{font-size:11px;color:var(--text-secondary);line-height:1.5}
     .modal-actions{display:flex;gap:8px;justify-content:flex-end}
     .rename-box{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;width:100%;max-width:320px}
-    
+
     .filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 10px;background:var(--surface-1);border-radius:var(--radius);border:0.5px solid var(--border);font-size:12px;color:var(--text-secondary);margin-bottom:.75rem}
     .filter-row label{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text-primary)}
     .simple-textarea{width:100%;min-height:260px;font-size:14px;line-height:1.8;font-family:var(--font-sans);color:var(--text-primary);background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:vertical;outline:none;margin-bottom:.75rem}
     .simple-textarea:focus{border-color:var(--border-accent)}
-    
+
     .top-bar{display:flex;align-items:center;gap:8px;margin-bottom:.75rem;flex-wrap:wrap}
     .icon-btn{font-size:12px;color:var(--text-muted);background:none;border:0.5px solid var(--border);border-radius:var(--radius);padding:4px 9px;cursor:pointer}
     .icon-btn:hover{color:var(--text-primary);border-color:var(--border-strong)}
@@ -103,18 +104,18 @@
     .speaker-chip.active{border-color:currentColor}
     .speaker-chip:not(.active){opacity:.4}
     .alt-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:.6rem}
-    
+
     .line-container{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;transition: opacity 0.2s;position:relative;}
     .line-container.dragging { opacity: 0.4; background: var(--bg-accent); border-radius: var(--radius); }
     .line{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2)}
     .line:hover{border-color:var(--border-strong)}
     .line.stage{background:var(--surface-1);border-style:dashed}
-    
+
     .line-speaker{font-size:11px;font-weight:600;min-width:65px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;cursor:grab;border-radius:4px;background: rgba(0,0,0,0.03);text-align:center;}
     .line-speaker:active{cursor:grabbing;}
     .line-text{flex:1;font-size:13px;color:var(--text-primary);background:none;border:none;outline:none;resize:none;line-height:1.6;font-family:var(--font-sans);min-height:24px;overflow:hidden;word-break:break-all;white-space:pre-wrap;}
     .line-text::placeholder{color:var(--text-muted)}
-    
+
     .line-inline-actions{display:flex;gap:4px;align-items:center;padding-left:73px;flex-wrap:wrap}
     .bs{background:var(--surface-1);border:0.5px solid var(--border);cursor:pointer;color:var(--text-secondary);font-size:11px;padding:3px 7px;border-radius:4px;display:inline-flex;align-items:center;gap:3px}
     .bs:hover{background:var(--border);color:var(--text-primary)}
@@ -126,13 +127,13 @@
     .bs.ac-add:hover{background:#bbf7d0}
     .bs.ac-proposal{background:#fff7ed;border-color:#fed7aa;color:#ea580c;font-weight:500}
     .bs.ac-proposal:hover{background:#ffedd5}
-    
+
     .add-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--border);padding-top:12px;margin-top:12px}
     .act-btn{font-size:12px;border-radius:var(--radius);padding:5px 12px;cursor:pointer;background:var(--surface-1);border:0.5px solid var(--border);color:var(--text-primary)}
     .act-btn:hover{border-color:var(--border-strong)}
     .act-btn.ac{background:none;border-color:var(--border-accent);color:var(--text-accent)}
     .act-btn.ac:hover{background:var(--bg-accent)}
-    
+
     .setup-wrap{max-width:380px}
     .setup-wrap h3{font-size:16px;font-weight:500;color:var(--text-primary);margin-bottom:4px}
     .setup-sub{font-size:13px;color:var(--text-secondary);margin-bottom:1rem}
@@ -189,7 +190,12 @@
     window.currentUser = null;
     window.userData = null;
     let unsubscribeScripts = null;
-    let isFirstLoad = true; // ✨ 無限ループ防止用のフラグ
+    let isFirstLoad = true;
+
+    // 安全な一意ID生成ユーティリティ（クラッシュ防止）
+    window.generateUniqueId = function() {
+      return Date.now() + Math.floor(Math.random() * 1000);
+    };
 
     window.loginWithGoogle = async function() {
       const provider = new GoogleAuthProvider();
@@ -197,7 +203,7 @@
     };
 
     window.logout = async function() {
-      if(confirm("ログアウト（アカウント切り替え準備）をしますか？")) {
+      if(confirm("ログアウトしますか？")) {
         if(unsubscribeScripts) unsubscribeScripts();
         await signOut(auth);
         location.reload();
@@ -208,7 +214,7 @@
       const nameInput = document.getElementById("regNameInput");
       const name = nameInput ? nameInput.value.trim() : "";
       if(!name) { alert("名前を入力してください。"); return; }
-      
+
       document.getElementById('loading').style.display = 'block';
       const uData = { uid: window.currentUser.uid, name: name, email: window.currentUser.email, friends: [] };
       await gs(gd(usersCol, window.currentUser.uid), uData);
@@ -242,16 +248,14 @@
         gw("userId", "==", window.currentUser.uid),
         gw("sharedWith", "array-contains", window.currentUser.uid)
       ));
-      
+
       unsubscribeScripts = gos(q, (snapshot) => {
         let imported = [];
         snapshot.forEach(doc => { imported.push(doc.data()); });
-        window.projects = imported.sort((a,b) => a.id - b.id);
-        window.uid = window.projects.length ? Math.max(...window.projects.map(p => p.id), ...window.projects.flatMap(p => p.lines ? p.lines.map(l => l.id) : [])) + 1 : 1;
-        
+        window.projects = imported.sort((a,b) => Number(a.id) - Number(b.id));
+
         window.renderSidebar();
 
-        // ✨ 画面表示の無限ループをここで回避
         if (isFirstLoad) {
           isFirstLoad = false;
           if(!window.activeId && window.projects.length) {
@@ -263,9 +267,10 @@
             window.renderEmpty();
           }
         } else if (window.activeId) {
-          // すでに開いている場合は、入力中のカーソルが外れないように「静かに更新」する
           window.openProject(window.activeId, true);
         }
+      }, (error) => {
+        console.error("Firestore同期エラー:", error);
       });
     }
 
@@ -291,7 +296,7 @@
     };
 
     window.toggleShareWithFriend = async function(friendUid) {
-      const p = window.projects.find(x => x.id === window.activeId);
+      const p = window.projects.find(x => String(x.id) === String(window.activeId));
       if(!p) return;
       if(!p.sharedWith) p.sharedWith = [];
 
@@ -367,7 +372,7 @@
       <span class="sc-lbl">記号抜き</span>
     </div>
     <div class="ml" id="barActions"></div>
-    
+
     <div class="user-badge" onclick="openProfileModal()" title="マイID確認・フレンド管理">
       <i class="ti ti-user" aria-hidden="true"></i>
       <span id="userNameLabel">—</span>
@@ -388,13 +393,13 @@
         <span>新規作品</span>
       </div>
     </div>
-    
+
     <div id="ctxMenu">
       <div class="ctx-item" id="ctxRename" onclick="ctxAction('rename')"><i class="ti ti-pencil" style="font-size:14px"></i> 名前を変更</div>
       <div class="ctx-item" id="ctxCopy" onclick="ctxAction('copy')"><i class="ti ti-copy" style="font-size:14px"></i> 全文コピー</div>
       <div class="ctx-item danger" onclick="ctxAction('delete')"><i class="ti ti-trash" style="font-size:14px"></i> 削除</div>
     </div>
-    
+
     <div id="main"></div>
 
     <div id="proposal-sidebar">
@@ -424,23 +429,28 @@ const RE_SY=/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g;
 const RE_BR=/[「」『』【】〔〕〈〉《》（）｛｝()[\]{}<>]/g;
 
 window.projects = [];
-window.uid = 1;
 window.activeId = null;
 let sidebarOpen=true;
 let ctxTargetId=null;
 let newModalMode='script';
 let activeLineProposalId = null;
 
-let saveTimeout = null;
+/* 修正: 保存タイマーをプロジェクトごとに分離
+   （旧実装は1つのタイマーを全作品で共有していたため、
+     連続で別の作品を編集すると前の作品の保存がキャンセルされ変更が消失する） */
+let saveTimeouts = {};
 function triggerSave(p) {
-  if(saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
+  const key = String(p.id);
+  if(saveTimeouts[key]) clearTimeout(saveTimeouts[key]);
+  saveTimeouts[key] = setTimeout(() => {
+    delete saveTimeouts[key];
     if(window.dbSave) window.dbSave(p);
   }, 800);
 }
 
 function eid(id){return document.getElementById(id)}
-function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+/* 修正: " と ' もエスケープ（value="..." 属性の破壊・HTML注入防止） */
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function truncTitle(s){return s ? (s.length>9?s.slice(0,9)+'…':s) : '無題'}
 function applyFilters(t,f){
   let s=t;
@@ -462,18 +472,18 @@ function autoResizeAll() { document.querySelectorAll('.line-text').forEach(ta =>
 function getProjectText(p){
   if(p.mode==='simple')return p.text||'';
   if(!p.lines)return '';
-  return p.lines.map(l=>l.text).join('');
+  return p.lines.map(l=>l.text || '').join('');
 }
 
 function updateStatBar(p){
   if(!p){eid('barTitle').textContent='—';eid('barAll').textContent='0';eid('barFlt').textContent='0';eid('barActions').innerHTML='';return;}
   const isShared = p.userId !== window.currentUser.uid;
   eid('barTitle').innerHTML = isShared ? `<i class="ti ti-users" style="color:var(--text-accent);font-size:14px;"></i> ${escH(truncTitle(p.title))}` : escH(truncTitle(p.title));
-  
+
   const raw=getProjectText(p);
   eid('barAll').textContent=raw.length.toLocaleString();
   eid('barFlt').textContent=applyFilters(raw,p.filters).length.toLocaleString();
-  
+
   let actionsHtml = `<button class="act-btn ac" onclick="exportCurrent()"><i class="ti ti-download"></i> 出力</button>`;
   if(!isShared) {
     actionsHtml += `<button class="act-btn" style="border-color:var(--border-accent);color:var(--text-accent);" onclick="openShareModal()"><i class="ti ti-share"></i> 共有設定</button>`;
@@ -512,14 +522,14 @@ window.openProfileModal = function() {
       <h3>フレンド一覧</h3>
       <div class="friend-box">${friendListHtml}</div>
       <div class="modal-actions" style="margin-top:16px;">
-        <button class="act-btn" onclick="openProject(${window.activeId || 'null'})">閉じる</button>
+        <button class="act-btn" onclick="openProject('${window.activeId || ''}')">閉じる</button>
       </div>
     </div>
   </div>`;
 };
 
 window.openShareModal = function() {
-  const p = window.projects.find(x => x.id === window.activeId);
+  const p = window.projects.find(x => String(x.id) === String(window.activeId));
   if(!p) return;
   if(!p.sharedWith) p.sharedWith = [];
 
@@ -546,7 +556,7 @@ window.openShareModal = function() {
         ${listHtml}
       </div>
       <div class="modal-actions" style="margin-top:16px;">
-        <button class="act-btn ac" onclick="openProject(${p.id})">設定完了</button>
+        <button class="act-btn ac" onclick="openProject('${p.id}')">設定完了</button>
       </div>
     </div>
   </div>`;
@@ -564,12 +574,12 @@ window.renderSidebar = function(){
     const div=document.createElement('div');
     const isScript=p.mode==='script';
     const isShared = p.userId !== window.currentUser.uid;
-    div.className='sb-item'+(isScript?' script-item':'')+(window.activeId===p.id?' active':'');
+    div.className='sb-item'+(isScript?' script-item':'')+(String(window.activeId)===String(p.id)?' active':'');
     const icon = isShared ? 'ti-users' : (isScript ? 'ti-file-text' : 'ti-text-size');
-    
+
     div.innerHTML=`<i class="ti ${icon} sb-icon" aria-hidden="true"></i>
       <span class="sb-name">${escH(truncTitle(p.title))}</span>
-      ${!isShared ? `<span class="sb-dots" onclick="openCtxMenu(event,${p.id})" title="編集メニュー">···</span>` : ''}`;
+      ${!isShared ? `<span class="sb-dots" onclick="openCtxMenu(event,'${p.id}')" title="編集メニュー">···</span>` : ''}`;
     div.addEventListener('click', e=>{if(!e.target.closest('.sb-dots')) openProject(p.id);});
     list.appendChild(div);
   });
@@ -589,7 +599,7 @@ document.addEventListener('click',()=>closeCtxMenu());
 function closeCtxMenu(){ const m=eid('ctxMenu'); if(m) m.classList.remove('open'); ctxTargetId=null; }
 
 function ctxAction(action){
-  const p=window.projects.find(x=>x.id===ctxTargetId);
+  const p=window.projects.find(x=>String(x.id)===String(ctxTargetId));
   closeCtxMenu();
   if(!p)return;
   if(action==='rename') openRenameModal(p);
@@ -604,8 +614,8 @@ function openRenameModal(p){
       <h3 style="margin-bottom:10px">名前を変更</h3>
       <input type="text" id="renameInput" value="${escH(p.title)}" maxlength="30" style="width:100%;margin-bottom:12px">
       <div class="modal-actions">
-        <button class="act-btn" onclick="openProject(${p.id})">キャンセル</button>
-        <button class="act-btn ac" onclick="doRename(${p.id})">変更</button>
+        <button class="act-btn" onclick="openProject('${p.id}')">キャンセル</button>
+        <button class="act-btn ac" onclick="doRename('${p.id}')">変更</button>
       </div>
     </div>
   </div>`;
@@ -613,7 +623,7 @@ function openRenameModal(p){
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')doRename(p.id);if(e.key==='Escape')openProject(p.id);});
 }
 function doRename(id){
-  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(id));if(!p)return;
   const v=eid('renameInput');if(!v)return;
   p.title=v.value.trim()||p.title;
   if(window.dbSave) window.dbSave(p);
@@ -623,7 +633,8 @@ function doRename(id){
 function copyProjectText(p){
   let text='';
   if(p.mode==='simple'){text=p.text||'';}
-  else if(p.lines){p.lines.forEach(l=>{if(l.type==='stage')text+=`（${l.text}）\n`;else{const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];text+=`${sp.name}「${l.text}」\n`;}});}
+  /* 修正: 話者IDの比較を他と同様に String() で統一 */
+  else if(p.lines){p.lines.forEach(l=>{if(l.type==='stage')text+=`（${l.text}）\n`;else{const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];text+=`${sp.name}「${l.text}」\n`;}});}
   navigator.clipboard.writeText(text).catch(()=>{});
 }
 
@@ -634,16 +645,16 @@ function confirmDelete(p){
       <h3 style="margin-bottom:8px">「${escH(truncTitle(p.title))}」を削除しますか？</h3>
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">この操作は取り消せません。</p>
       <div class="modal-actions">
-        <button class="act-btn" onclick="openProject(${p.id})">キャンセル</button>
-        <button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger)" onclick="doDelete(${p.id})"><i class="ti ti-trash"></i> 削除する</button>
+        <button class="act-btn" onclick="openProject('${p.id}')">キャンセル</button>
+        <button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger)" onclick="doDelete('${p.id}')"><i class="ti ti-trash"></i> 削除する</button>
       </div>
     </div>
   </div>`;
 }
 function doDelete(id){
   if(window.dbDelete) window.dbDelete(id);
-  window.projects=window.projects.filter(p=>p.id!==id);
-  if(window.activeId===id)window.activeId=window.projects.length?window.projects[window.projects.length-1].id:null;
+  window.projects=window.projects.filter(p=>String(p.id)!==String(id));
+  if(String(window.activeId)===String(id))window.activeId=window.projects.length?window.projects[window.projects.length-1].id:null;
   window.renderSidebar();
   if(window.activeId)openProject(window.activeId);else renderEmpty();
 }
@@ -671,7 +682,7 @@ function openNewModal(){
         <input type="text" id="newTitle" placeholder="作品名（例：新ネタ）" maxlength="30" style="width: 100%; padding: 6px 10px; border-radius: var(--radius); border: 0.5px solid var(--border); outline: none;">
       </div>
       <div class="modal-actions">
-        <button class="act-btn" onclick="${window.projects.length?'openProject('+(window.activeId||window.projects[0].id)+')':'renderEmpty()'}">キャンセル</button>
+        <button class="act-btn" onclick="${window.projects.length?'openProject(\''+(window.activeId||window.projects[0].id)+'\')':'renderEmpty()'}">キャンセル</button>
         <button class="act-btn ac" onclick="createProject()">作成</button>
       </div>
     </div>
@@ -685,9 +696,10 @@ function selectNewMode(m){
 function createProject(){
   const titleEl=eid('newTitle');
   const title=(titleEl?titleEl.value.trim():'')||'無題';
-  const p={id:window.uid++,title,mode:newModalMode,filters:{space:true,punct:true,symbol:true,bracket:true}, sharedWith:[]};
+  const newProjId = String(window.generateUniqueId());
+  const p={id:newProjId,title,mode:newModalMode,filters:{space:true,punct:true,symbol:true,bracket:true}, sharedWith:[]};
   if(newModalMode==='script'){
-    p.setupRows=[{id:window.uid++,name:'',color:COLORS[0]},{id:window.uid++,name:'',color:COLORS[2]}];
+    p.setupRows=[{id:String(window.generateUniqueId()),name:'',color:COLORS[0]},{id:String(window.generateUniqueId()),name:'',color:COLORS[2]}];
     p.speakers=null;p.lines=null;p.activeSpId=null;p.altMode=true;
   } else {p.text='';}
   window.projects.push(p);window.activeId=p.id;
@@ -697,9 +709,9 @@ function createProject(){
 }
 
 window.openProject = function(id, fromFirebase = false){
-  // Firebaseのバックグラウンド更新かつ、テキスト入力中の場合は、中身を再描画せず上部カウンター類だけ更新
+  if (!id) return renderEmpty();
   if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
-    const activeP = window.projects.find(x=>x.id===id);
+    const activeP = window.projects.find(x=>String(x.id)===String(id));
     if(activeP) {
       updateStatBar(activeP);
       if(activeLineProposalId) renderProposalSidebarContent(activeP, activeLineProposalId);
@@ -707,13 +719,13 @@ window.openProject = function(id, fromFirebase = false){
     return;
   }
   window.activeId=id;
-  const p=window.projects.find(x=>x.id===id);
+  const p=window.projects.find(x=>String(x.id)===String(id));
   if(!p)return renderEmpty();
   updateStatBar(p);
   if(p.mode==='simple')renderSimple(p);
   else if(p.speakers)renderScriptEditor(p);
   else renderSetup(p);
-  
+
   if(!fromFirebase && activeLineProposalId) closeProposalSidebar();
 }
 window.renderEmpty = function(){
@@ -727,39 +739,49 @@ function renderSimple(p){
   <div class="top-bar"><span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span></div>
   <div class="filter-row">
     <span>除外：</span>
-    <label><input type="checkbox" id="fSp" ${p.filters?.space?'checked':''} onchange="simFilter(${p.id})"> 空白・改行</label>
-    <label><input type="checkbox" id="fPu" ${p.filters?.punct?'checked':''} onchange="simFilter(${p.id})"> 句読点・記号</label>
-    <label><input type="checkbox" id="fSy" ${p.filters?.symbol?'checked':''} onchange="simFilter(${p.id})"> 英数字記号</label>
-    <label><input type="checkbox" id="fBr" ${p.filters?.bracket?'checked':''} onchange="simFilter(${p.id})"> 括弧類</label>
+    <label><input type="checkbox" id="fSp" ${p.filters?.space?'checked':''} onchange="simFilter('${p.id}')"> 空白・改行</label>
+    <label><input type="checkbox" id="fPu" ${p.filters?.punct?'checked':''} onchange="simFilter('${p.id}')"> 句読点・記号</label>
+    <label><input type="checkbox" id="fSy" ${p.filters?.symbol?'checked':''} onchange="simFilter('${p.id}')"> 英数字記号</label>
+    <label><input type="checkbox" id="fBr" ${p.filters?.bracket?'checked':''} onchange="simFilter('${p.id}')"> 括弧類</label>
   </div>
-  <textarea class="simple-textarea" id="simTA" placeholder="ここにテキストを入力...">${escH(p.text)}</textarea>
+  <textarea class="simple-textarea" id="simTA" placeholder="ここにテキストを入力...">${escH(p.text || '')}</textarea>
   <div class="add-bar">
-    <button class="act-btn" onclick="clearSim(${p.id})"><i class="ti ti-trash" aria-hidden="true"></i> クリア</button>
+    <button class="act-btn" onclick="clearSim('${p.id}')"><i class="ti ti-trash" aria-hidden="true"></i> クリア</button>
   </div>`;
   const ta=eid('simTA');
   ta.addEventListener('input', e=>{p.text=e.target.value;triggerSave(p);updateStatBar(p);});
 }
 function simFilter(id){
-  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(id));if(!p)return;
   p.filters={space:eid('fSp').checked,punct:eid('fPu').checked,symbol:eid('fSy').checked,bracket:eid('fBr').checked};
   if(window.dbSave) window.dbSave(p);
   updateStatBar(p);
 }
 function clearSim(id){
-  const p=window.projects.find(x=>x.id===id);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(id));if(!p)return;
   p.text='';const ta=eid('simTA');if(ta)ta.value='';if(window.dbSave) window.dbSave(p);updateStatBar(p);
 }
 
 /* SETUP */
+/* 追加: 編集画面から話者設定へ安全に戻るための関数
+   （現在の speakers を setupRows に反映してから設定画面を開く） */
+window.openSetup = function(pid){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  if(p.speakers && p.speakers.length){
+    p.setupRows = p.speakers.map(s=>({id:s.id, name:s.name, color:s.color}));
+  }
+  renderSetup(p);
+};
+
 function renderSetup(p){
   eid('main').innerHTML=`<div class="setup-wrap">
     <h3>${escH(p.title)} — 登場人物の設定</h3>
     <p class="setup-sub">名前と色を決めてください</p>
     <div id="spList"></div>
     <div style="margin-bottom:1rem">
-      <button class="act-btn" onclick="addSpRow(${p.id})"><i class="ti ti-plus" aria-hidden="true"></i> 話者を追加</button>
+      <button class="act-btn" onclick="addSpRow('${p.id}')"><i class="ti ti-plus" aria-hidden="true"></i> 話者を追加</button>
     </div>
-    <button class="act-btn ac" onclick="startScript(${p.id})">台本を書きはじめる</button>
+    <button class="act-btn ac" onclick="startScript('${p.id}')">${p.lines && p.lines.length ? '設定を保存して台本に戻る' : '台本を書きはじめる'}</button>
   </div>`;
   renderSpRows(p);
 }
@@ -770,7 +792,7 @@ function renderSpRows(p){
     div.innerHTML=`<div class="sp-row">
       <div class="sp-dot" style="background:${row.color.bg};border:2px solid ${row.color.text}"></div>
       <input type="text" placeholder="名前（例：田中）" value="${escH(row.name)}" maxlength="10" id="sn${row.id}" style="flex:1; padding: 4px 8px; border-radius: 4px; border: 0.5px solid var(--border); outline: none;">
-      ${p.setupRows.length>2?`<button class="rm-btn" onclick="rmSpRow(${p.id},${row.id})"><i class="ti ti-x"></i></button>`:''}
+      ${p.setupRows.length>2?`<button class="rm-btn" onclick="rmSpRow('${p.id}','${row.id}')"><i class="ti ti-x"></i></button>`:''}
     </div>
     <div class="cdots" id="cd${row.id}"></div>`;
     list.appendChild(div);
@@ -779,20 +801,49 @@ function renderSpRows(p){
       const d=document.createElement('div');
       d.className='cdot'+(row.color.name===c.name?' sel':'');
       d.style.background=c.bg;d.style.borderColor=row.color.name===c.name?c.text:'transparent';
-      d.onclick=()=>{row.color=c;if(window.dbSave) window.dbSave(p);renderSpRows(p);};
+      d.onclick=()=>{
+        /* 入力中の名前が消えないよう、色変更前に現在値を保存 */
+        p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value;});
+        row.color=c;if(window.dbSave) window.dbSave(p);renderSpRows(p);
+      };
       dots.appendChild(d);
     });
     eid('sn'+row.id).addEventListener('input',e=>{row.name=e.target.value;triggerSave(p);});
   });
 }
-function addSpRow(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.setupRows.push({id:window.uid++,name:'',color:COLORS[p.setupRows.length%COLORS.length]});if(window.dbSave) window.dbSave(p);renderSpRows(p);}
-function rmSpRow(pid,rid){const p=window.projects.find(x=>x.id===pid);if(!p||p.setupRows.length<=2)return;p.setupRows=p.setupRows.filter(r=>r.id!==rid);if(window.dbSave) window.dbSave(p);renderSpRows(p);}
+function addSpRow(pid){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  /* 入力中の名前が消えないよう、行追加前に現在値を保存 */
+  p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value;});
+  p.setupRows.push({id:String(window.generateUniqueId()),name:'',color:COLORS[p.setupRows.length%COLORS.length]});
+  if(window.dbSave) window.dbSave(p);renderSpRows(p);
+}
+function rmSpRow(pid,rid){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p||p.setupRows.length<=2)return;
+  p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value;});
+  p.setupRows=p.setupRows.filter(r=>String(r.id)!==String(rid));
+  if(window.dbSave) window.dbSave(p);renderSpRows(p);
+}
 function startScript(pid){
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value.trim();});
-  p.speakers=p.setupRows.map(r=>({id:r.id,name:r.name||'話者'+r.id,color:r.color}));
-  p.lines=[{id:window.uid++,type:'line',speakerId:p.speakers[0].id,text:'',proposals:[]}];
-  p.activeSpId=p.speakers[0].id;
+  p.speakers=p.setupRows.map(r=>({id:r.id,name:r.name||'話者',color:r.color}));
+  /* 修正: 既存の台本があれば保持する（旧実装は毎回 lines を初期化していたため
+     設定画面を開き直すたびに台本が全消去されていた） */
+  if(!p.lines || !p.lines.length){
+    p.lines=[{id:String(window.generateUniqueId()),type:'line',speakerId:p.speakers[0].id,text:'',proposals:[]}];
+  } else {
+    /* 削除された話者に紐づくセリフは先頭の話者に付け替える */
+    p.lines.forEach(l=>{
+      if(l.type==='line' && !p.speakers.some(s=>String(s.id)===String(l.speakerId))){
+        l.speakerId=p.speakers[0].id;
+      }
+    });
+  }
+  /* アクティブ話者が消えていた場合も先頭に付け替え */
+  if(!p.activeSpId || !p.speakers.some(s=>String(s.id)===String(p.activeSpId))){
+    p.activeSpId=p.speakers[0].id;
+  }
   if(window.dbSave) window.dbSave(p);
   renderScriptEditor(p);
 }
@@ -802,43 +853,45 @@ function renderScriptEditor(p){
   eid('main').innerHTML=`
   <div class="top-bar">
     <span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span>
-    <button class="icon-btn" onclick="renderSetup(window.projects.find(x=>x.id==${p.id}))"><i class="ti ti-settings" aria-hidden="true"></i> 話者設定</button>
+    <button class="icon-btn" onclick="openSetup('${p.id}')"><i class="ti ti-settings" aria-hidden="true"></i> 話者設定</button>
   </div>
   <div class="filter-row">
     <span>除外：</span>
-    <label><input type="checkbox" id="sfSp" ${p.filters?.space?'checked':''} onchange="scFilter(${p.id})"> 空白・改行</label>
-    <label><input type="checkbox" id="sfPu" ${p.filters?.punct?'checked':''} onchange="scFilter(${p.id})"> 句読点・記号</label>
-    <label><input type="checkbox" id="sfSy" ${p.filters?.symbol?'checked':''} onchange="changeFilter(${p.id},'symbol',this.checked)"> 英数字記号</label>
-    <label><input type="checkbox" id="sfBr" ${p.filters?.bracket?'checked':''} onchange="changeFilter(${p.id},'bracket',this.checked)"> 括弧類</label>
+    <label><input type="checkbox" id="sfSp" ${p.filters?.space?'checked':''} onchange="scFilter('${p.id}')"> 空白・改行</label>
+    <label><input type="checkbox" id="sfPu" ${p.filters?.punct?'checked':''} onchange="scFilter('${p.id}')"> 句読点・記号</label>
+    <label><input type="checkbox" id="sfSy" ${p.filters?.symbol?'checked':''} onchange="scFilter('${p.id}')"> 英数字記号</label>
+    <label><input type="checkbox" id="sfBr" ${p.filters?.bracket?'checked':''} onchange="scFilter('${p.id}')"> 括弧類</label>
   </div>
   <div class="speakers-bar" id="spBar"></div>
   <div class="alt-toggle">
-    <input type="checkbox" id="altM" ${p.altMode?'checked':''} onchange="window.projects.find(x=>x.id==${p.id}).altMode=this.checked; if(window.dbSave) window.dbSave(window.projects.find(x=>x.id==${p.id}));">
+    <input type="checkbox" id="altM" ${p.altMode?'checked':''} onchange="toggleAltMode('${p.id}', this.checked)">
     <label for="altM">追加時に話者を自動で交互に切り替える</label>
   </div>
   <div class="lines" id="linesList"></div>
   <div class="add-bar">
     <span style="font-size:12px;color:var(--text-muted)">末尾に追加：</span>
-    <button class="act-btn" onclick="addLine(${p.id})"><i class="ti ti-plus" aria-hidden="true"></i> セリフ追加</button>
-    <button class="act-btn" onclick="addStage(${p.id})"><i class="ti ti-brackets" aria-hidden="true"></i> ト書き</button>
+    <button class="act-btn" onclick="addLine('${p.id}')"><i class="ti ti-plus" aria-hidden="true"></i> セリフ追加</button>
+    <button class="act-btn" onclick="addStage('${p.id}')"><i class="ti ti-brackets" aria-hidden="true"></i> ト書き</button>
   </div>`;
   renderSpBar(p);renderLines(p);
 }
+/* 追加: altMode切替を専用関数化（インラインの長い式を整理） */
+function toggleAltMode(pid, val){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  p.altMode=val;
+  if(window.dbSave) window.dbSave(p);
+}
 function scFilter(pid){
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   p.filters={space:eid('sfSp').checked,punct:eid('sfPu').checked,symbol:eid('sfSy').checked,bracket:eid('sfBr').checked};
   if(window.dbSave) window.dbSave(p);
   updateStatBar(p);
-}
-function changeFilter(pid,type,val){
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
-  p.filters[type]=val;if(window.dbSave) window.dbSave(p);updateStatBar(p);
 }
 function renderSpBar(p){
   const bar=eid('spBar');if(!bar)return;bar.innerHTML='';
   p.speakers.forEach(s=>{
     const c=document.createElement('div');
-    c.className='speaker-chip'+(p.activeSpId===s.id?' active':'');
+    c.className='speaker-chip'+(String(p.activeSpId)===String(s.id)?' active':'');
     c.style.background=s.color.bg;c.style.color=s.color.text;
     c.textContent=s.name;c.onclick=()=>{p.activeSpId=s.id;if(window.dbSave) window.dbSave(p);renderSpBar(p);};
     bar.appendChild(c);
@@ -856,14 +909,15 @@ function getNextSpId(p, targetIndex = null){
     if(ls.length) baseLine = ls[ls.length-1];
   }
   if(!baseLine) return p.speakers[0].id;
-  const idx=p.speakers.findIndex(s=>s.id===baseLine.speakerId);
+  const idx=p.speakers.findIndex(s=>String(s.id)===String(baseLine.speakerId));
+  if(idx === -1) return p.speakers[0].id;
   return p.speakers[(idx+1)%p.speakers.length].id;
 }
 
 function addLine(pid){
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   const sid=getNextSpId(p);p.activeSpId=sid;
-  p.lines.push({id:window.uid++,type:'line',speakerId:sid,text:'',proposals:[]});
+  p.lines.push({id:String(window.generateUniqueId()),type:'line',speakerId:sid,text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderSpBar(p);renderLines(p);
   setTimeout(()=>{
@@ -872,9 +926,9 @@ function addLine(pid){
   },30);
 }
 function insertLineAfter(pid, index) {
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   const sid=getNextSpId(p, index); p.activeSpId=sid;
-  p.lines.splice(index + 1, 0, {id:window.uid++,type:'line',speakerId:sid,text:'',proposals:[]});
+  p.lines.splice(index + 1, 0, {id:String(window.generateUniqueId()),type:'line',speakerId:sid,text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderSpBar(p);renderLines(p);
   setTimeout(()=>{
@@ -886,8 +940,8 @@ function insertLineAfter(pid, index) {
   },30);
 }
 function insertStageAfter(pid, index) {
-  const p=window.projects.find(x=>x.id===pid);if(!p)return;
-  p.lines.splice(index + 1, 0, {id:window.uid++,type:'stage',text:'',proposals:[]});
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  p.lines.splice(index + 1, 0, {id:String(window.generateUniqueId()),type:'stage',text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderLines(p);
   setTimeout(()=>{
@@ -899,23 +953,23 @@ function insertStageAfter(pid, index) {
   },30);
 }
 
-function addStage(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.lines.push({id:window.uid++,type:'stage',text:'',proposals:[]});if(window.dbSave) window.dbSave(p);renderLines(p);}
+function addStage(pid){const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;p.lines.push({id:String(window.generateUniqueId()),type:'stage',text:'',proposals:[]});if(window.dbSave) window.dbSave(p);renderLines(p);}
 
 function delLine(pid,i){
-  const p=window.projects.find(x=>x.id===pid);if(!p||p.lines.length<=1)return;
-  if (confirm("この行（セリフ・ト書き）を削除してもよろしいですか？")) {
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p||p.lines.length<=1)return;
+  if (confirm("この行を削除してもよろしいですか？")) {
     p.lines.splice(i,1); if(window.dbSave) window.dbSave(p); renderLines(p);
   }
 }
 
-function cycleSpk(pid,i){const p=window.projects.find(x=>x.id===pid);if(!p)return;const l=p.lines[i];if(l.type==='stage') return;const idx=p.speakers.findIndex(s=>s.id===l.speakerId);l.speakerId=p.speakers[(idx+1)%p.speakers.length].id;if(window.dbSave) window.dbSave(p);renderLines(p);}
+function cycleSpk(pid,i){const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;const l=p.lines[i];if(l.type==='stage') return;const idx=p.speakers.findIndex(s=>String(s.id)===String(l.speakerId));l.speakerId=p.speakers[(idx+1)%p.speakers.length].id;if(window.dbSave) window.dbSave(p);renderLines(p);}
 
 let dragStartIndex = null;
 function handleDragStart(e, index) { dragStartIndex = index; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
 function handleDragOver(e) { e.preventDefault(); }
 function handleDragDrop(pid, index) {
   if (dragStartIndex === null || dragStartIndex === index) return;
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
   const draggedItem = p.lines.splice(dragStartIndex, 1)[0];
   p.lines.splice(index, 0, draggedItem);
   if (window.dbSave) window.dbSave(p);
@@ -930,7 +984,7 @@ function renderLines(p){
     const container = document.createElement('div');
     container.className = 'line-container';
     container.draggable = true;
-    
+
     container.addEventListener('dragstart', (e) => handleDragStart(e, i));
     container.addEventListener('dragover', handleDragOver);
     container.addEventListener('drop', () => handleDragDrop(p.id, i));
@@ -942,35 +996,35 @@ function renderLines(p){
     if(l.type==='stage'){
       div.className='line stage';
       div.innerHTML=`<span class="line-speaker" style="color:var(--text-muted);font-style:italic" title="ドラッグして並び替え">ト書き</span>
-        <textarea class="line-text" rows="1" placeholder="（状況説明）" style="font-style:italic;color:var(--text-secondary)">${escH(l.text)}</textarea>`;
-      
+        <textarea class="line-text" rows="1" placeholder="（状況説明）" style="font-style:italic;color:var(--text-secondary)">${escH(l.text || '')}</textarea>`;
+
       const actionRow = document.createElement('div');
       actionRow.className = 'line-inline-actions';
       actionRow.innerHTML = `
-        <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
-        <button class="bs ac-proposal" onclick="openProposalSidebarForLine(${p.id}, ${l.id})"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
-        <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
-        <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
-      
+        <button class="bs ac-danger" onclick="delLine('${p.id}',${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-proposal" onclick="openProposalSidebarForLine('${p.id}', '${l.id}')"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
+        <button class="bs ac-add" onclick="insertLineAfter('${p.id}',${i})"><i class="ti ti-plus"></i> セリフ追加</button>
+        <button class="bs ac-add" onclick="insertStageAfter('${p.id}',${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
+
       container.appendChild(div); container.appendChild(actionRow);
     } else {
-      const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];
+      const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];
       div.className='line';div.style.borderLeftWidth='3px';div.style.borderLeftColor=sp.color.text;
       div.innerHTML=`<span class="line-speaker" style="color:${sp.color.text}; background:${sp.color.bg}" title="ドラッグして並び替え">${escH(sp.name)}</span>
-        <textarea class="line-text" rows="1" placeholder="セリフを入力...">${escH(l.text)}</textarea>`;
-      
+        <textarea class="line-text" rows="1" placeholder="セリフを入力...">${escH(l.text || '')}</textarea>`;
+
       const actionRow = document.createElement('div');
       actionRow.className = 'line-inline-actions';
       actionRow.innerHTML = `
-        <button class="bs ac-change" onclick="cycleSpk(${p.id},${i})" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
-        <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
-        <button class="bs ac-proposal" onclick="openProposalSidebarForLine(${p.id}, ${l.id})"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
-        <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
-        <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
-      
+        <button class="bs ac-change" onclick="cycleSpk('${p.id}',${i})" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
+        <button class="bs ac-danger" onclick="delLine('${p.id}',${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-proposal" onclick="openProposalSidebarForLine('${p.id}', '${l.id}')"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
+        <button class="bs ac-add" onclick="insertLineAfter('${p.id}',${i})"><i class="ti ti-plus"></i> セリフ追加</button>
+        <button class="bs ac-add" onclick="insertStageAfter('${p.id}',${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
+
       container.appendChild(div); container.appendChild(actionRow);
     }
-    
+
     const ta=div.querySelector('textarea');
     ta.addEventListener('input', e=>{ l.text=e.target.value; triggerSave(p); autoResize(e.target); updateStatBar(p); });
     ta.addEventListener('keydown', e=>{
@@ -984,10 +1038,9 @@ function renderLines(p){
   updateStatBar(p);
 }
 
-/* 修正案サイドバーの操作・描画ロジック */
 window.openProposalSidebarForLine = function(pid, lineId) {
   activeLineProposalId = lineId;
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
   eid('proposal-sidebar').classList.add('open');
   renderProposalSidebarContent(p, lineId);
 };
@@ -998,12 +1051,12 @@ window.closeProposalSidebar = function() {
 };
 
 function renderProposalSidebarContent(p, lineId) {
-  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
   if (!line.proposals) line.proposals = [];
-  
+
   const contentArea = eid('proposalSidebarContent');
   let html = `
-    <button class="act-btn ac" style="width:100%; justify-content:center; display:flex; gap:6px;" onclick="addNewProposal(${p.id}, ${lineId})">
+    <button class="act-btn ac" style="width:100%; justify-content:center; display:flex; gap:6px;" onclick="addNewProposal('${p.id}', '${lineId}')">
       <i class="ti ti-plus"></i> 新しい修正案を追加
     </button>
     <div style="height:0.5px; background:var(--border); margin:4px 0;"></div>
@@ -1019,10 +1072,10 @@ function renderProposalSidebarContent(p, lineId) {
             <span>👤 ${escH(prop.userName)}</span>
             <span>${new Date(prop.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
           </div>
-          <textarea class="prop-text" oninput="updateProposalText(${p.id}, ${lineId}, ${index}, this.value)">${escH(prop.text)}</textarea>
+          <textarea class="prop-text" oninput="updateProposalText('${p.id}', '${lineId}', ${index}, this.value)">${escH(prop.text || '')}</textarea>
           <div class="prop-actions">
-            <button class="bs ac-danger" style="padding:2px 6px;" onclick="deleteProposal(${p.id}, ${lineId}, ${index})" title="修正案を削除"><i class="ti ti-trash"></i></button>
-            <button class="bs ac-change" style="padding:2px 8px; background:#ea580c; border-color:#ea580c; color:white;" onclick="applyProposalToLine(${p.id}, ${lineId}, ${index})">
+            <button class="bs ac-danger" style="padding:2px 6px;" onclick="deleteProposal('${p.id}', '${lineId}', ${index})" title="修正案を削除"><i class="ti ti-trash"></i></button>
+            <button class="bs ac-change" style="padding:2px 8px; background:#ea580c; border-color:#ea580c; color:white;" onclick="applyProposalToLine('${p.id}', '${lineId}', ${index})">
               <i class="ti ti-check"></i> 本文を上書き
             </button>
           </div>
@@ -1033,24 +1086,24 @@ function renderProposalSidebarContent(p, lineId) {
 }
 
 window.addNewProposal = function(pid, lineId) {
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
-  const line = p.lines.find(l => l.id === lineId); if (!line) return;
-  
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
+  const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
+
   line.proposals.push({
-    text: line.text,
+    text: line.text || '',
     userId: window.currentUser.uid,
     userName: window.userData.name,
     createdAt: Date.now()
   });
-  
+
   window.dbSave(p);
   renderProposalSidebarContent(p, lineId);
   renderLines(p);
 };
 
 window.updateProposalText = function(pid, lineId, index, newText) {
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
-  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
+  const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
   if (line.proposals[index]) {
     line.proposals[index].text = newText;
     triggerSave(p);
@@ -1058,8 +1111,8 @@ window.updateProposalText = function(pid, lineId, index, newText) {
 };
 
 window.deleteProposal = function(pid, lineId, index) {
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
-  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
+  const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
   if (confirm("この修正案を削除してもよろしいですか？")) {
     line.proposals.splice(index, 1);
     window.dbSave(p);
@@ -1069,8 +1122,8 @@ window.deleteProposal = function(pid, lineId, index) {
 };
 
 window.applyProposalToLine = function(pid, lineId, index) {
-  const p = window.projects.find(x => x.id === pid); if (!p) return;
-  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
+  const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
   const prop = line.proposals[index];
   if (!prop) return;
 
@@ -1083,15 +1136,20 @@ window.applyProposalToLine = function(pid, lineId, index) {
 };
 
 function exportCurrent(){
-  const p=window.projects.find(x=>x.id===window.activeId);if(!p)return;
+  const p=window.projects.find(x=>String(x.id)===String(window.activeId));if(!p)return;
+  /* 修正: Blob URLの生成処理を共通化し、使用後に解放（メモリリーク防止） */
+  const downloadText = (text, filename) => {
+    const blob=new Blob([text],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  };
   if(p.mode==='simple'){
-    const blob=new Blob([p.text],{type:'text/plain'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.title||'テキスト')+'.txt';a.click();
+    downloadText(p.text || '', (p.title||'テキスト')+'.txt');
   } else if(p.lines){
     let out='';
-    p.lines.forEach(l=>{if(l.type==='stage')out+=`（${l.text}）\n`;else{const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];out+=`${sp.name}「${l.text}」\n`;}});
-    const blob=new Blob([out],{type:'text/plain'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(p.title||'台本')+'.txt';a.click();
+    p.lines.forEach(l=>{if(l.type==='stage')out+=`（${l.text || ''}）\n`;else{const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];out+=`${sp.name}「${l.text || ''}」\n`;}});
+    downloadText(out, (p.title||'台本')+'.txt');
   }
 }
 </script>
