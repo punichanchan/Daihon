@@ -198,7 +198,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
@@ -637,32 +637,28 @@
     };
 
     /* 受信側: 招待をOKする
-       ★ルール上の要件（Pattern B）: 「追加される本人」が scripts ドキュメントを書き換えて
-         自分自身を sharedWith に追加しなければならない。
-         このとき、shareInvites/{scriptId}_{自分UID} が status=='approved' で存在することが
-         Firestoreルールで確認される。そのため処理順序が重要:
-         1. 招待の status を 'approved' に更新 ← まずこれ（ルールの証明を作る）
-         2. scripts ドキュメントを読んで自分を sharedWith に追加（Pattern B が通る）
+       処理順序（ルールのPattern B要件に合わせた順序）:
+         1. 招待の status を 'approved' に更新（Pattern B の「承認済み招待」証明を先に作る）
+         2. scripts ドキュメントに arrayUnion で自分のUIDを追加
+            ★read なしで書けるので「読み取り権限なし」エラーが発生しない
+            ★Firestoreルールが「approved な招待が存在する」ことを確認してPattern B通過
          3. 招待ドキュメントを削除（後片付け） */
     window.approveShareInvite = async function(inviteId) {
-      document.getElementById('loading').style.display = 'block';
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
       try {
-        /* Step 1: 招待を approved に更新（これがPattern Bの「証明」になる） */
+        /* Step 1: 招待を approved に更新 */
         await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
 
-        /* Step 2: 招待情報を latestShareDocs から探してscriptIdを特定 */
+        /* Step 2: スクリプトのsharedWithに自分を追加（read不要、arrayUnionで直接書き込み）
+           inviteId の形式は "{scriptId}_{自分のUID}" なので分割してscriptIdを取得 */
         const inv = latestShareDocs.find(d => d.id === inviteId);
         if(inv && inv.scriptId) {
-          const scriptDoc = await gg(gd(scriptsCol, String(inv.scriptId)));
-          if(scriptDoc.exists()) {
-            const scriptData = scriptDoc.data();
-            if(!scriptData.sharedWith) scriptData.sharedWith = [];
-            if(!scriptData.sharedWith.includes(window.currentUser.uid)) {
-              scriptData.sharedWith.push(window.currentUser.uid);
-              /* Pattern B で書き込む: 自分を追加 & approved な招待が存在する */
-              await gs(gd(scriptsCol, String(inv.scriptId)), scriptData);
-            }
-          }
+          await gs(
+            gd(scriptsCol, String(inv.scriptId)),
+            { sharedWith: gau(window.currentUser.uid) },
+            { merge: true }
+          );
         }
 
         /* Step 3: 招待ドキュメントを削除 */
@@ -671,9 +667,14 @@
         window.showToast("✅ 共同編集をOKしました！作品一覧に追加されます。");
       } catch(e) {
         console.error("共有招待の承認エラー:", e);
-        alert("エラーが発生しました。Firestoreルールを確認してください。\n" + e.message);
+        if(e.code === 'permission-denied'){
+          alert("エラー: 権限がありません。Firestoreルールを確認してください。\n" + e.message);
+        } else {
+          alert("エラーが発生しました: " + e.message);
+        }
+      } finally {
+        if(L) L.style.display = 'none';
       }
-      document.getElementById('loading').style.display = 'none';
     };
 
     window.declineShareInvite = async function(inviteId) {
