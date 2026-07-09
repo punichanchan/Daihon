@@ -468,64 +468,94 @@
     /* フレンド申請を送る（常に申請→承認フロー。相手がOKするまでフレンド追加しない）
        申請ID = 自分UID_相手UID で重複防止。相手のフレンドリストへの追加も
        承認後に approveFriendRequest 内で行うため、ここでは絶対に直接追加しない。 */
+    /* フレンド申請を送る。エラー時は例外を投げて呼び元のcatchに任せる。
+       戻り値: true = 申請送信成功, false = 重複・スキップ */
     async function sendFriendAddOrRequest(targetData) {
       const reqId = `${window.currentUser.uid}_${targetData.uid}`;
       const existing = await gg(gd(requestsCol, reqId));
       if(existing.exists()) {
         const st = existing.data().status;
-        if(st === 'pending') return alert(`${targetData.name}さんには申請済みです。承認をお待ちください。`);
-        if(st === 'approved') return alert(`${targetData.name}さんは既に承認済みです。ページを再読み込みしてください。`);
+        if(st === 'pending'){ alert(`${targetData.name}さんには申請済みです。メールボックスで確認できます。`); return false; }
+        if(st === 'approved'){ alert(`${targetData.name}さんは既に承認済みです。`); return false; }
       }
       await gs(gd(requestsCol, reqId), {
         from: window.currentUser.uid, fromName: window.userData.name,
         to: targetData.uid, toName: targetData.name,
         status: 'pending', createdAt: Date.now()
       });
-      alert(`${targetData.name}さんにフレンド申請を送りました。\n相手がOKするとお互いのフレンドに追加されます。`);
+      return true;
     }
 
     window.addFriendById = async function() {
-      const fId = document.getElementById("friendIdInput").value.trim();
+      const fId = document.getElementById("friendIdInput") ?
+                  document.getElementById("friendIdInput").value.trim() : "";
       if(!fId) return alert("IDを入力してください。");
       if(fId === window.currentUser.uid) return alert("自分のIDは追加できません。");
       if(window.userData.friends.some(f => f.uid === fId)) return alert("既にフレンドに登録されています。");
 
-      document.getElementById('loading').style.display = 'block';
-      const targetUserDoc = await gg(gd(usersCol, fId));
-      if(!targetUserDoc.exists()) {
-        document.getElementById('loading').style.display = 'none';
-        return alert("指定されたIDのユーザーが見つかりませんでした。");
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        const targetUserDoc = await gg(gd(usersCol, fId));
+        if(!targetUserDoc.exists()){
+          alert("指定されたIDのユーザーが見つかりませんでした。");
+          return;
+        }
+        const sent = await sendFriendAddOrRequest(targetUserDoc.data());
+        if(sent) {
+          /* 申請成功 → メールボックスを開いて「申請中」を即座に確認できるようにする */
+          window.showToast(`📨 ${targetUserDoc.data().name}さんにフレンド申請を送りました`);
+          window.openMailbox();
+        }
+      } catch(e) {
+        console.error("フレンド申請エラー:", e);
+        if(e.code === 'permission-denied'){
+          alert("エラー: 権限がありません。\nFirestoreルールが正しく設定されているか確認してください。\n\n詳細: " + e.message);
+        } else {
+          alert("エラーが発生しました: " + e.message);
+        }
+      } finally {
+        /* エラー・成功どちらの場合も必ず loading を消す */
+        if(L) L.style.display = 'none';
       }
-      await sendFriendAddOrRequest(targetUserDoc.data());
-      document.getElementById('loading').style.display = 'none';
-      window.openProfileModal();
     };
 
     /* 申請を承認: 自分のフレンドに相手を追加し、申請をapprovedに更新
        （相手側にはリアルタイム監視経由で即座に通知が届き、相互フレンドになる） */
     window.approveFriendRequest = async function(reqId) {
-      document.getElementById('loading').style.display = 'block';
-      const d = await gg(gd(requestsCol, reqId));
-      if(!d.exists()){ document.getElementById('loading').style.display = 'none'; return alert("申請が見つかりませんでした。"); }
-      const r = d.data();
-      if(!window.userData.friends.some(f => f.uid === r.from)) {
-        window.userData.friends.push({ uid: r.from, name: r.fromName });
-        await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        const d = await gg(gd(requestsCol, reqId));
+        if(!d.exists()){ alert("申請が見つかりませんでした。既に取り消された可能性があります。"); return; }
+        const r = d.data();
+        /* 自分のフレンドリストに追加（重複チェック付き） */
+        if(!window.userData.friends.some(f => f.uid === r.from)) {
+          window.userData.friends.push({ uid: r.from, name: r.fromName });
+          await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
+        }
+        /* 申請を approved に更新 → 送信側リアルタイムリスナーが反応して相互フレンド化される */
+        await gs(gd(requestsCol, reqId), { status: 'approved' }, { merge: true });
+        window.showToast(`✅ ${r.fromName}さんをフレンドに追加しました！`);
+        /* リアルタイムリスナーがメールボックスとフレンドリストを自動更新する */
+      } catch(e) {
+        console.error("承認エラー:", e);
+        alert("エラーが発生しました: " + e.message);
+      } finally {
+        if(L) L.style.display = 'none';
       }
-      await gs(gd(requestsCol, reqId), { status: 'approved' }, { merge: true });
-      document.getElementById('loading').style.display = 'none';
-      window.showToast(`✅ ${r.fromName}さんをフレンドに追加しました！`);
-      /* 一覧の更新はリアルタイム監視が自動で行う */
     };
 
     window.rejectFriendRequest = async function(reqId) {
       if(!confirm("この申請を拒否しますか？")) return;
-      await gdd(gd(requestsCol, reqId));
+      try { await gdd(gd(requestsCol, reqId)); }
+      catch(e) { console.error("拒否エラー:", e); alert("エラー: " + e.message); }
     };
 
     window.cancelFriendRequest = async function(reqId) {
       if(!confirm("この申請を取り消しますか？")) return;
-      await gdd(gd(requestsCol, reqId));
+      try { await gdd(gd(requestsCol, reqId)); }
+      catch(e) { console.error("取消エラー:", e); alert("エラー: " + e.message); }
     };
 
     /* ===== プロフィール保存（名前16文字・自己紹介300文字） ===== */
@@ -653,19 +683,33 @@
 
     window.dbSave = async function(p) {
       if(!p || !p.id || !window.currentUser) return;
-      document.getElementById('loading').style.display = 'block';
-      if(!p.userId) p.userId = window.currentUser.uid;
-      if(!p.sharedWith) p.sharedWith = [];
-      const cleanData = JSON.parse(JSON.stringify(p));
-      await gs(gd(scriptsCol, String(p.id)), cleanData);
-      document.getElementById('loading').style.display = 'none';
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        if(!p.userId) p.userId = window.currentUser.uid;
+        if(!p.sharedWith) p.sharedWith = [];
+        const cleanData = JSON.parse(JSON.stringify(p));
+        await gs(gd(scriptsCol, String(p.id)), cleanData);
+      } catch(e) {
+        console.error("保存エラー:", e);
+        if(e.code === 'permission-denied') alert("保存エラー: 権限がありません。\n" + e.message);
+        else throw e;
+      } finally {
+        if(L) L.style.display = 'none';
+      }
     };
 
     window.dbDelete = async function(id) {
       if(!window.currentUser) return;
-      document.getElementById('loading').style.display = 'block';
-      await gdd(gd(scriptsCol, String(id)));
-      document.getElementById('loading').style.display = 'none';
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        await gdd(gd(scriptsCol, String(id)));
+      } catch(e) {
+        console.error("削除エラー:", e);
+      } finally {
+        if(L) L.style.display = 'none';
+      }
     };
 
     function renderLoginView() {
