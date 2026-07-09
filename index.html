@@ -221,7 +221,8 @@
     window.currentUser = null;
     window.userData = null;
     let unsubscribeScripts = null;
-    let unsubscribeRequests = null;
+    let unsubRequestsIn = null;   /* 自分宛フレンド申請の監視 */
+    let unsubRequestsOut = null;  /* 自分発フレンド申請の監視 */
     let unsubscribeShares = null;
     let isFirstLoad = true;
 
@@ -246,7 +247,8 @@
     window.logout = async function() {
       if(confirm("ログアウトしますか？")) {
         if(unsubscribeScripts) unsubscribeScripts();
-        if(unsubscribeRequests) unsubscribeRequests();
+        if(unsubRequestsIn) unsubRequestsIn();
+        if(unsubRequestsOut) unsubRequestsOut();
         if(unsubscribeShares) unsubscribeShares();
         await signOut(auth);
         location.reload();
@@ -272,9 +274,13 @@
         const userDoc = await gg(gd(usersCol, user.uid));
         if (userDoc.exists()) {
           window.userData = userDoc.data();
-          if(!window.userData.friends) window.userData.friends = [];
-          if(window.userData.profile === undefined) window.userData.profile = "";
-          if(window.userData.friendApproval === undefined) window.userData.friendApproval = true;
+          let needsSave = false;
+          if(!window.userData.friends){ window.userData.friends = []; needsSave = true; }
+          if(window.userData.profile === undefined){ window.userData.profile = ""; needsSave = true; }
+          /* friendApproval は廃止: 常に申請→承認フロー。古いフィールドは無視してOK */
+          if(needsSave){
+            await gs(gd(usersCol, user.uid), JSON.parse(JSON.stringify(window.userData)));
+          }
           initAppReady();
         } else {
           renderNameRegistration();
@@ -330,24 +336,37 @@
     function startInboxListeners() {
       const me = window.currentUser.uid;
 
-      /* フレンド申請（自分宛＋自分発の両方を1つのクエリで監視） */
-      unsubscribeRequests = gos(gq(requestsCol, gor(gw("to", "==", me), gw("from", "==", me))), async (snap) => {
-        const friendIn = [], friendOut = [];
+      /* ─── フレンド申請: 受信側（自分宛） ───
+         ORクエリの代わりに独立した2本のリスナーに分ける。
+         ORクエリは Firestore の複合インデックスが必要で自動生成されないため
+         静かに失敗する場合があり、申請が相手に届かない原因になっていた。 */
+      unsubRequestsIn = gos(gq(requestsCol, gw("to", "==", me)), async (snap) => {
+        const friendIn = [];
+        for (const d of snap.docs) {
+          const r = d.data();
+          if(r.status !== 'pending') continue;
+          friendIn.push({ id: d.id, fromName: r.fromName, fromUid: r.from, createdAt: r.createdAt });
+          /* 新着申請をリアルタイム通知（同一申請は1セッション1回のみ） */
+          if(!notifiedIds.has(d.id)) {
+            notifiedIds.add(d.id);
+            window.showToast(`📮 ${r.fromName}さんからフレンド申請が届きました`);
+          }
+        }
+        window.inbox.friendIn = friendIn.sort((a,b) => b.createdAt - a.createdAt);
+        window.updateMailBadge();
+        window.renderMailboxIfOpen();
+      }, (e) => { console.error("受信申請の監視エラー:", e); });
+
+      /* ─── フレンド申請: 送信側（自分発） ─── */
+      unsubRequestsOut = gos(gq(requestsCol, gw("from", "==", me)), async (snap) => {
+        const friendOut = [];
         for (const d of snap.docs) {
           const r = d.data();
           if(r.status === 'pending') {
-            if(r.to === me) {
-              friendIn.push({ id: d.id, fromName: r.fromName, createdAt: r.createdAt });
-              /* 新着申請をリアルタイム通知（同一申請は1セッション1回のみ） */
-              if(!notifiedIds.has(d.id)) {
-                notifiedIds.add(d.id);
-                window.showToast(`📮 ${r.fromName}さんからフレンド申請が届きました`);
-              }
-            } else {
-              friendOut.push({ id: d.id, toName: r.toName, createdAt: r.createdAt });
-            }
-          } else if(r.status === 'approved' && r.from === me) {
-            /* 自分の申請が承認された: 相手を自分のフレンドにも追加して申請を削除（リアルタイム相互フレンド化） */
+            /* まだ承認待ち → 「申請中」としてメールボックスに表示するだけ */
+            friendOut.push({ id: d.id, toName: r.toName, toUid: r.to, createdAt: r.createdAt });
+          } else if(r.status === 'approved') {
+            /* 承認された → 初めて自分のフレンドリストに追加し、申請ドキュメントを削除 */
             if(processingIds.has(d.id)) continue;
             processingIds.add(d.id);
             try {
@@ -362,17 +381,27 @@
             finally { processingIds.delete(d.id); }
           }
         }
-        window.inbox.friendIn = friendIn.sort((a,b)=>b.createdAt-a.createdAt);
-        window.inbox.friendOut = friendOut.sort((a,b)=>b.createdAt-a.createdAt);
+        window.inbox.friendOut = friendOut.sort((a,b) => b.createdAt - a.createdAt);
         window.updateMailBadge();
         window.renderMailboxIfOpen();
-      }, (e) => { console.error("フレンド申請の監視エラー:", e); });
+      }, (e) => { console.error("送信申請の監視エラー:", e); });
 
-      /* 共有招待（自分宛＋自分の作品宛の両方を監視） */
-      unsubscribeShares = gos(gq(sharesCol, gor(gw("to", "==", me), gw("ownerUid", "==", me))), (snap) => {
-        latestShareDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      /* ─── 共有招待も2本の独立したリスナーに分ける ─── */
+      let latestShareIn = [], latestShareOut = [];
+      function mergeAndReconcile() {
+        latestShareDocs = [...latestShareIn, ...latestShareOut];
         reconcileShares();
-      }, (e) => { console.error("共有招待の監視エラー:", e); });
+      }
+      let unsubSharesIn = gos(gq(sharesCol, gw("to", "==", me)), (snap) => {
+        latestShareIn = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        mergeAndReconcile();
+      }, (e) => { console.error("受信共有招待の監視エラー:", e); });
+      let unsubSharesOut = gos(gq(sharesCol, gw("ownerUid", "==", me)), (snap) => {
+        latestShareOut = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        mergeAndReconcile();
+      }, (e) => { console.error("送信共有招待の監視エラー:", e); });
+      /* 両方まとめてクリーンアップできるようにラップする */
+      unsubscribeShares = () => { unsubSharesIn(); unsubSharesOut(); };
     }
 
     /* 共有招待の状態を処理してメールボックスへ反映する */
@@ -436,27 +465,23 @@
       return map;
     };
 
-    /* 相手の設定に応じて「直接追加」または「フレンド申請」を行う共通処理 */
+    /* フレンド申請を送る（常に申請→承認フロー。相手がOKするまでフレンド追加しない）
+       申請ID = 自分UID_相手UID で重複防止。相手のフレンドリストへの追加も
+       承認後に approveFriendRequest 内で行うため、ここでは絶対に直接追加しない。 */
     async function sendFriendAddOrRequest(targetData) {
-      if(targetData.friendApproval) {
-        /* 許可制の相手: 申請ドキュメントを作成（申請ID = 自分UID_相手UID で重複防止） */
-        const reqId = `${window.currentUser.uid}_${targetData.uid}`;
-        const existing = await gg(gd(requestsCol, reqId));
-        if(existing.exists() && existing.data().status === 'pending') {
-          return alert(`${targetData.name}さんには申請済みです。承認をお待ちください。`);
-        }
-        await gs(gd(requestsCol, reqId), {
-          from: window.currentUser.uid, fromName: window.userData.name,
-          to: targetData.uid, toName: targetData.name,
-          status: 'pending', createdAt: Date.now()
-        });
-        alert(`${targetData.name}さんにフレンド申請を送りました。\n相手が承認するとフレンドに追加されます。`);
-      } else {
-        /* 許可制OFFの相手: 従来通り直接追加 */
-        window.userData.friends.push({ uid: targetData.uid, name: targetData.name });
-        await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
-        alert(`${targetData.name}さんをフレンドに追加しました！`);
+      const reqId = `${window.currentUser.uid}_${targetData.uid}`;
+      const existing = await gg(gd(requestsCol, reqId));
+      if(existing.exists()) {
+        const st = existing.data().status;
+        if(st === 'pending') return alert(`${targetData.name}さんには申請済みです。承認をお待ちください。`);
+        if(st === 'approved') return alert(`${targetData.name}さんは既に承認済みです。ページを再読み込みしてください。`);
       }
+      await gs(gd(requestsCol, reqId), {
+        from: window.currentUser.uid, fromName: window.userData.name,
+        to: targetData.uid, toName: targetData.name,
+        status: 'pending', createdAt: Date.now()
+      });
+      alert(`${targetData.name}さんにフレンド申請を送りました。\n相手がOKするとお互いのフレンドに追加されます。`);
     }
 
     window.addFriendById = async function() {
@@ -510,12 +535,9 @@
       const name = nameEl ? nameEl.value.trim().slice(0,16) : "";
       if(!name) return alert("名前を入力してください。");
       const profile = bioEl ? bioEl.value.slice(0,300) : "";
-      const apprEl = document.getElementById("friendApprovalChk");
-
       document.getElementById('loading').style.display = 'block';
       window.userData.name = name;
       window.userData.profile = profile;
-      window.userData.friendApproval = apprEl ? apprEl.checked : (window.userData.friendApproval !== false);
       await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
       document.getElementById('loading').style.display = 'none';
       document.getElementById("userNameLabel").textContent = name;
@@ -857,10 +879,9 @@ window.openProfileModal = function() {
       <input type="text" id="profNameInput" class="prof-input" maxlength="16" value="${escH(u.name)}">
       <label class="prof-field" for="profBioInput">自己紹介プロフィール（300文字まで）</label>
       <textarea id="profBioInput" class="prof-input" maxlength="300" placeholder="例：コント台本を書いています。ネタ合わせ相手募集中。">${escH(u.profile || '')}</textarea>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);margin-top:12px;text-align:left;cursor:pointer;">
-        <input type="checkbox" id="friendApprovalChk" ${u.friendApproval ? 'checked' : ''}>
-        フレンド追加を許可制にする（あなたを追加するには承認が必要になります）
-      </label>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:left;">
+        <i class="ti ti-info-circle"></i> フレンド追加は常に申請制です。相手がOKするまでフレンドに追加されません。
+      </p>
       <div style="text-align:right; margin-top:10px;">
         <button class="act-btn ac" onclick="saveProfile()"><i class="ti ti-device-floppy"></i> プロフィールを保存</button>
       </div>
