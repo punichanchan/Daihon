@@ -174,30 +174,31 @@
     .line.previewing .line-text { color: #9a3412; }
     .preview-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: #ea580c; background: #ffedd5; border: 0.5px solid #fed7aa; border-radius: 10px; padding: 2px 8px; }
 
-    /* 追加: プロフィール・ハッシュタグ・チャット関連 */
+    /* 追加: プロフィール編集関連 */
     .prof-field { display:block; text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); margin:10px 0 3px; }
     .prof-input { width:100%; padding:7px 9px; border-radius:6px; border:0.5px solid var(--border); outline:none; font-size:13px; font-family:var(--font-sans); }
     .prof-input:focus { border-color:var(--border-accent); }
     textarea.prof-input { resize:vertical; min-height:70px; line-height:1.6; }
-    .tag-chip { display:inline-flex; background:var(--bg-accent); color:var(--text-accent); border:0.5px solid var(--border-accent); border-radius:10px; font-size:11px; padding:2px 8px; margin:2px; }
-    .user-card { border:0.5px solid var(--border); border-radius:var(--radius); padding:8px 10px; margin-top:6px; text-align:left; font-size:12px; background:#fff; }
 
-    .chat-wrap { display:flex; flex-direction:column; border:0.5px solid var(--border); border-radius:12px; background:#fff; max-width:560px; height:72vh; overflow:hidden; }
-    .chat-head { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:0.5px solid var(--border); background:var(--surface-1); font-weight:500; font-size:14px; color:var(--text-primary); }
-    .chat-msgs { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
-    .chat-bubble { max-width:75%; padding:7px 10px; border-radius:12px; font-size:13px; line-height:1.5; overflow-wrap:anywhere; white-space:pre-wrap; color:var(--text-primary); }
-    .chat-bubble.me { align-self:flex-end; background:var(--bg-accent); border:0.5px solid var(--border-accent); }
-    .chat-bubble.other { align-self:flex-start; background:var(--surface-1); border:0.5px solid var(--border); }
-    .chat-meta { font-size:9px; color:var(--text-muted); margin-top:3px; text-align:right; }
-    .chat-input-row { display:flex; gap:6px; padding:10px; border-top:0.5px solid var(--border); align-items:flex-end; }
-    .chat-input-row textarea { flex:1; resize:none; border:0.5px solid var(--border); border-radius:8px; padding:8px; font-size:13px; font-family:var(--font-sans); outline:none; min-height:38px; max-height:110px; }
-    .chat-input-row textarea:focus { border-color:var(--border-accent); }
+    /* 追加: メールボックス（受信箱）とリアルタイム通知 */
+    .mailbox-btn { position:relative; display:flex; align-items:center; justify-content:center; background:#fff; border:0.5px solid var(--border); border-radius:20px; padding:4px 10px; cursor:pointer; color:var(--text-secondary); font-size:15px; }
+    .mailbox-btn:hover { background:var(--bg-accent); border-color:var(--border-accent); color:var(--text-accent); }
+    .mail-badge { position:absolute; top:-5px; right:-4px; background:#ef4444; color:#fff; border-radius:10px; font-size:9px; font-weight:bold; padding:1px 5px; display:none; line-height:1.4; }
+    .mail-section { font-size:11px; font-weight:600; color:var(--text-secondary); letter-spacing:.03em; margin:16px 0 4px; text-align:left; }
+    .mail-item { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; padding:8px 6px; border-bottom:0.5px solid var(--surface-1); text-align:left; }
+    .mail-item .mi-text { overflow-wrap:anywhere; line-height:1.5; }
+    .mail-item .mi-actions { display:flex; gap:4px; flex-shrink:0; }
+    .mail-notice { font-size:12px; color:var(--text-secondary); padding:6px; border-bottom:0.5px solid var(--surface-1); text-align:left; overflow-wrap:anywhere; line-height:1.5; }
+    .mail-notice .mn-time { font-size:9px; color:var(--text-muted); margin-left:4px; }
+    #toastArea { position:fixed; top:12px; right:12px; z-index:1000; display:flex; flex-direction:column; gap:8px; max-width:280px; }
+    .toast { background:#111827; color:#fff; font-size:12px; padding:10px 12px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.25); line-height:1.5; overflow-wrap:anywhere; animation:toastIn .25s ease; }
+    @keyframes toastIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
   </style>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, getDocs as ggd, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
@@ -214,16 +215,23 @@
     const auth = getAuth(app);
     const scriptsCol = gc(db, "scripts");
     const usersCol = gc(db, "users");
-    const chatsCol = gc(db, "chats");
     const requestsCol = gc(db, "friendRequests");
     const sharesCol = gc(db, "shareInvites");
 
     window.currentUser = null;
     window.userData = null;
-    window.activeChat = null;
     let unsubscribeScripts = null;
-    let unsubscribeChat = null;
+    let unsubscribeRequests = null;
+    let unsubscribeShares = null;
     let isFirstLoad = true;
+
+    /* メールボックスの中身（リアルタイムリスナーが常時更新する） */
+    window.inbox = { friendIn: [], friendOut: [], shareIn: [], shareOut: [], notices: [] };
+    /* 同一ドキュメントの二重処理・二重通知を防ぐためのセット */
+    const processingIds = new Set();
+    const notifiedIds = new Set();
+    /* 共有招待の最新スナップショット（作品一覧の読み込みより先に届いた場合の再処理用） */
+    let latestShareDocs = [];
 
     // 安全な一意ID生成ユーティリティ（クラッシュ防止）
     window.generateUniqueId = function() {
@@ -238,6 +246,8 @@
     window.logout = async function() {
       if(confirm("ログアウトしますか？")) {
         if(unsubscribeScripts) unsubscribeScripts();
+        if(unsubscribeRequests) unsubscribeRequests();
+        if(unsubscribeShares) unsubscribeShares();
         await signOut(auth);
         location.reload();
       }
@@ -249,7 +259,7 @@
       if(!name) { alert("名前を入力してください。"); return; }
 
       document.getElementById('loading').style.display = 'block';
-      const uData = { uid: window.currentUser.uid, name: name.slice(0,16), email: window.currentUser.email, friends: [], profile: "", hashtags: [], friendApproval: true };
+      const uData = { uid: window.currentUser.uid, name: name.slice(0,16), email: window.currentUser.email, friends: [], profile: "", friendApproval: true };
       await gs(gd(usersCol, window.currentUser.uid), uData);
       window.userData = uData;
       document.getElementById('loading').style.display = 'none';
@@ -263,7 +273,6 @@
         if (userDoc.exists()) {
           window.userData = userDoc.data();
           if(!window.userData.friends) window.userData.friends = [];
-          if(!window.userData.hashtags) window.userData.hashtags = [];
           if(window.userData.profile === undefined) window.userData.profile = "";
           if(window.userData.friendApproval === undefined) window.userData.friendApproval = true;
           initAppReady();
@@ -280,8 +289,8 @@
       document.getElementById("app-content").style.display = "flex";
       document.getElementById("userNameLabel").textContent = window.userData.name;
 
-      /* 起動時に承認済みのフレンド申請を取り込む */
-      syncApprovedRequests();
+      /* フレンド申請・共有招待のリアルタイム監視を開始 */
+      startInboxListeners();
 
       const q = gq(scriptsCol, gor(
         gw("userId", "==", window.currentUser.uid),
@@ -305,13 +314,127 @@
           } else {
             window.renderEmpty();
           }
-        } else if (window.activeId && !window.activeChat) {
+        } else if (window.activeId && !window.mailboxOpen && !window.shareModalScriptId) {
           window.openProject(window.activeId, true);
         }
+
+        /* 作品一覧が更新されたら、承認済み共有招待の反映を再試行
+           （共有招待のスナップショットが作品より先に届いた場合の取りこぼし防止） */
+        reconcileShares();
       }, (error) => {
         console.error("Firestore同期エラー:", error);
       });
     }
+
+    /* ===== メールボックスのリアルタイム監視 ===== */
+    function startInboxListeners() {
+      const me = window.currentUser.uid;
+
+      /* フレンド申請（自分宛＋自分発の両方を1つのクエリで監視） */
+      unsubscribeRequests = gos(gq(requestsCol, gor(gw("to", "==", me), gw("from", "==", me))), async (snap) => {
+        const friendIn = [], friendOut = [];
+        for (const d of snap.docs) {
+          const r = d.data();
+          if(r.status === 'pending') {
+            if(r.to === me) {
+              friendIn.push({ id: d.id, fromName: r.fromName, createdAt: r.createdAt });
+              /* 新着申請をリアルタイム通知（同一申請は1セッション1回のみ） */
+              if(!notifiedIds.has(d.id)) {
+                notifiedIds.add(d.id);
+                window.showToast(`📮 ${r.fromName}さんからフレンド申請が届きました`);
+              }
+            } else {
+              friendOut.push({ id: d.id, toName: r.toName, createdAt: r.createdAt });
+            }
+          } else if(r.status === 'approved' && r.from === me) {
+            /* 自分の申請が承認された: 相手を自分のフレンドにも追加して申請を削除（リアルタイム相互フレンド化） */
+            if(processingIds.has(d.id)) continue;
+            processingIds.add(d.id);
+            try {
+              if(!window.userData.friends.some(f => f.uid === r.to)) {
+                window.userData.friends.push({ uid: r.to, name: r.toName });
+                await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
+              }
+              await gdd(gd(requestsCol, d.id));
+              pushNotice(`✅ ${r.toName}さんがフレンド申請を承認しました！`);
+              window.showToast(`✅ ${r.toName}さんがフレンド申請を承認しました！`);
+            } catch(e) { console.error("承認取り込みエラー:", e); }
+            finally { processingIds.delete(d.id); }
+          }
+        }
+        window.inbox.friendIn = friendIn.sort((a,b)=>b.createdAt-a.createdAt);
+        window.inbox.friendOut = friendOut.sort((a,b)=>b.createdAt-a.createdAt);
+        window.updateMailBadge();
+        window.renderMailboxIfOpen();
+      }, (e) => { console.error("フレンド申請の監視エラー:", e); });
+
+      /* 共有招待（自分宛＋自分の作品宛の両方を監視） */
+      unsubscribeShares = gos(gq(sharesCol, gor(gw("to", "==", me), gw("ownerUid", "==", me))), (snap) => {
+        latestShareDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        reconcileShares();
+      }, (e) => { console.error("共有招待の監視エラー:", e); });
+    }
+
+    /* 共有招待の状態を処理してメールボックスへ反映する */
+    async function reconcileShares() {
+      if(!window.currentUser) return;
+      const me = window.currentUser.uid;
+      const shareIn = [], shareOut = [];
+
+      for (const inv of latestShareDocs) {
+        if(inv.status === 'pending') {
+          if(inv.to === me) {
+            shareIn.push({ id: inv.id, ownerName: inv.ownerName, scriptTitle: inv.scriptTitle, createdAt: inv.createdAt });
+            if(!notifiedIds.has(inv.id)) {
+              notifiedIds.add(inv.id);
+              window.showToast(`📮 ${inv.ownerName}さんから「${inv.scriptTitle}」の共同編集の招待が届きました`);
+            }
+          } else if(inv.ownerUid === me) {
+            shareOut.push({ id: inv.id, toName: inv.toName, scriptTitle: inv.scriptTitle, createdAt: inv.createdAt });
+          }
+        } else if(inv.status === 'approved' && inv.ownerUid === me) {
+          /* 相手がOKして sharedWith への書き込みも完了した後の招待ドキュメントが残っている。
+             オーナー側では「通知を出す」と「招待を削除する」だけ行う。
+             ★sharedWith の書き込みは友人側クライアントの approveShareInvite が担う（ルール上の要件）。
+               オーナーが書き換えると rules の Pattern A/B どちらにも当たらず permission-denied になる。 */
+          if(processingIds.has(inv.id)) continue;
+          processingIds.add(inv.id);
+          try {
+            await gdd(gd(sharesCol, inv.id)); /* 招待を削除（既に友人が削除済みの場合は静かに無視） */
+            pushNotice(`✅ ${inv.toName}さんが「${inv.scriptTitle}」の共同編集をOKしました！`);
+            window.showToast(`✅ ${inv.toName}さんが「${inv.scriptTitle}」の共同編集をOKしました！`);
+          } catch(e) {
+            if(e.code !== 'permission-denied' && e.code !== 'not-found') console.error("招待削除エラー:", e);
+          }
+          finally { processingIds.delete(inv.id); }
+        }
+      }
+
+      window.inbox.shareIn = shareIn.sort((a,b)=>b.createdAt-a.createdAt);
+      window.inbox.shareOut = shareOut.sort((a,b)=>b.createdAt-a.createdAt);
+      window.updateMailBadge();
+      window.renderMailboxIfOpen();
+      window.refreshShareModalIfOpen();
+    }
+
+    /* お知らせをメールボックスに積む（最新20件・メモリ保持） */
+    function pushNotice(text) {
+      window.inbox.notices.unshift({ text: text, at: Date.now(), unread: true });
+      window.inbox.notices = window.inbox.notices.slice(0, 20);
+      window.updateMailBadge();
+      window.renderMailboxIfOpen();
+    }
+
+    /* 共有設定モーダル用: この作品への保留中の招待マップ（リアルタイムデータから即時取得） */
+    window.shareInviteMapFor = function(scriptId) {
+      const map = {};
+      latestShareDocs.forEach(inv => {
+        if(inv.ownerUid === window.currentUser.uid && String(inv.scriptId) === String(scriptId) && inv.status === 'pending') {
+          map[inv.to] = { id: inv.id };
+        }
+      });
+      return map;
+    };
 
     /* 相手の設定に応じて「直接追加」または「フレンド申請」を行う共通処理 */
     async function sendFriendAddOrRequest(targetData) {
@@ -353,49 +476,8 @@
       window.openProfileModal();
     };
 
-    /* 自分が送った申請のうち承認済みのものを取り込む
-       （承認された時点で相手側のフレンドには自分が入っているので、
-         自分側のフレンドにも相手を追加してから申請を削除する） */
-    async function syncApprovedRequests() {
-      try {
-        const snap = await ggd(gq(requestsCol, gw("from", "==", window.currentUser.uid)));
-        let changed = false;
-        for (const d of snap.docs) {
-          const r = d.data();
-          if(r.status === 'approved') {
-            if(!window.userData.friends.some(f => f.uid === r.to)) {
-              window.userData.friends.push({ uid: r.to, name: r.toName });
-              changed = true;
-            }
-            await gdd(gd(requestsCol, d.id));
-          }
-        }
-        if(changed) {
-          await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
-        }
-      } catch(e) { console.error("申請同期エラー:", e); }
-    }
-
-    /* プロフィール画面の申請一覧を読み込む（受信＝承認待ち／送信＝申請中） */
-    window.loadFriendRequests = async function() {
-      const box = document.getElementById('friendReqBox');
-      if(!box) return;
-      try {
-        await syncApprovedRequests();
-        const inSnap = await ggd(gq(requestsCol, gw("to", "==", window.currentUser.uid)));
-        const incoming = [];
-        inSnap.forEach(d => { const r = d.data(); if(r.status === 'pending') incoming.push({ id: d.id, from: r.from, fromName: r.fromName, toName: r.toName }); });
-        const outSnap = await ggd(gq(requestsCol, gw("from", "==", window.currentUser.uid)));
-        const outgoing = [];
-        outSnap.forEach(d => { const r = d.data(); if(r.status === 'pending') outgoing.push({ id: d.id, from: r.from, fromName: r.fromName, toName: r.toName }); });
-        window.renderFriendRequests(incoming, outgoing);
-      } catch(e) {
-        console.error(e);
-        box.innerHTML = '<p style="font-size:11px;color:var(--text-danger);text-align:center;padding:8px;">申請の読み込みに失敗しました</p>';
-      }
-    };
-
-    /* 申請を承認: 自分のフレンドに相手を追加し、申請をapprovedに更新（相手側クライアントが取り込む） */
+    /* 申請を承認: 自分のフレンドに相手を追加し、申請をapprovedに更新
+       （相手側にはリアルタイム監視経由で即座に通知が届き、相互フレンドになる） */
     window.approveFriendRequest = async function(reqId) {
       document.getElementById('loading').style.display = 'block';
       const d = await gg(gd(requestsCol, reqId));
@@ -407,37 +489,32 @@
       }
       await gs(gd(requestsCol, reqId), { status: 'approved' }, { merge: true });
       document.getElementById('loading').style.display = 'none';
-      alert(`${r.fromName}さんをフレンドに追加しました！`);
-      window.openProfileModal();
+      window.showToast(`✅ ${r.fromName}さんをフレンドに追加しました！`);
+      /* 一覧の更新はリアルタイム監視が自動で行う */
     };
 
     window.rejectFriendRequest = async function(reqId) {
       if(!confirm("この申請を拒否しますか？")) return;
       await gdd(gd(requestsCol, reqId));
-      window.loadFriendRequests();
     };
 
     window.cancelFriendRequest = async function(reqId) {
       if(!confirm("この申請を取り消しますか？")) return;
       await gdd(gd(requestsCol, reqId));
-      window.loadFriendRequests();
     };
 
-    /* ===== プロフィール保存（名前16文字・自己紹介300文字・ハッシュタグ10個まで） ===== */
+    /* ===== プロフィール保存（名前16文字・自己紹介300文字） ===== */
     window.saveProfile = async function() {
       const nameEl = document.getElementById("profNameInput");
       const bioEl = document.getElementById("profBioInput");
-      const tagsEl = document.getElementById("profTagsInput");
       const name = nameEl ? nameEl.value.trim().slice(0,16) : "";
       if(!name) return alert("名前を入力してください。");
       const profile = bioEl ? bioEl.value.slice(0,300) : "";
-      const tags = tagsEl ? tagsEl.value.split(/[\s,、，#＃]+/).map(t=>t.trim()).filter(t=>t).slice(0,10) : [];
       const apprEl = document.getElementById("friendApprovalChk");
 
       document.getElementById('loading').style.display = 'block';
       window.userData.name = name;
       window.userData.profile = profile;
-      window.userData.hashtags = tags;
       window.userData.friendApproval = apprEl ? apprEl.checked : (window.userData.friendApproval !== false);
       await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
       document.getElementById('loading').style.display = 'none';
@@ -446,81 +523,10 @@
       window.openProfileModal();
     };
 
-    /* ===== ハッシュタグでユーザー検索 ===== */
-    window.searchUsersByTag = async function() {
-      const inp = document.getElementById("tagSearchInput");
-      const tag = inp ? inp.value.trim().replace(/^[#＃]/,'') : "";
-      if(!tag) return alert("ハッシュタグを入力してください。");
-
-      document.getElementById('loading').style.display = 'block';
-      try {
-        const q2 = gq(usersCol, gw("hashtags", "array-contains", tag));
-        const snap = await ggd(q2);
-        const results = [];
-        snap.forEach(d => { const u = d.data(); if(u.uid !== window.currentUser.uid) results.push(u); });
-        window.renderTagSearchResults(results, tag);
-      } catch(e) {
-        console.error(e);
-        alert("検索に失敗しました: " + e.message);
-      }
-      document.getElementById('loading').style.display = 'none';
-    };
-
-    /* 検索結果から直接フレンド追加（相手が許可制なら申請になる） */
-    window.addFriendDirect = async function(uid) {
-      if(window.userData.friends.some(f => f.uid === uid)) return alert("既にフレンドに登録されています。");
-      document.getElementById('loading').style.display = 'block';
-      const d = await gg(gd(usersCol, uid));
-      if(!d.exists()){ document.getElementById('loading').style.display = 'none'; return alert("ユーザーが見つかりませんでした。"); }
-      await sendFriendAddOrRequest(d.data());
-      document.getElementById('loading').style.display = 'none';
-    };
-
-    /* ===== フレンドチャット =====
-       2人のUIDをソートして結合したIDを1チャット=1ドキュメントとして使用。
-       メッセージは arrayUnion で追記し、onSnapshot でリアルタイム受信する */
-    function chatIdFor(a, b){ return [a, b].sort().join('_'); }
-
-    window.stopChatListener = function(){
-      if(unsubscribeChat){ unsubscribeChat(); unsubscribeChat = null; }
-    };
-
-    window.openChat = function(friendUid, friendName) {
-      window.stopChatListener();
-      const cid = chatIdFor(window.currentUser.uid, friendUid);
-      window.activeChat = { id: cid, friendUid, friendName };
-      window.renderChatView(friendName);
-      unsubscribeChat = gos(gd(chatsCol, cid), (snap) => {
-        const data = snap.exists() ? snap.data() : { messages: [] };
-        window.renderChatMessages(data.messages || []);
-      }, (e) => { console.error("チャット同期エラー:", e); });
-    };
-
-    window.closeChat = function(){
-      window.stopChatListener();
-      window.activeChat = null;
-      window.openProfileModal();
-    };
-
-    window.sendChatMessage = async function(){
-      const inp = document.getElementById("chatInput");
-      const text = inp ? inp.value.trim() : "";
-      if(!text || !window.activeChat) return;
-      inp.value = '';
-      const msg = { uid: window.currentUser.uid, name: window.userData.name, text: text, at: Date.now() };
-      try {
-        await gs(gd(chatsCol, window.activeChat.id),
-          { id: window.activeChat.id, members: [window.currentUser.uid, window.activeChat.friendUid], messages: gau(msg) },
-          { merge: true });
-      } catch(e) {
-        alert("送信に失敗しました: " + e.message);
-      }
-    };
-
     /* ===== 共有の招待（承認制の共同編集） =====
        所有者が招待を送り、相手がOKした後に初めて sharedWith に追加され編集可能になる。
-       友達申請と同じく、相手の承認は招待ドキュメントの status 更新で伝え、
-       所有者側クライアントが起動時/共有設定を開いたときに取り込む */
+       相手の承認は招待ドキュメントの status 更新で伝わり、
+       所有者側のリアルタイム監視が即座に取り込んで共同編集を開始する */
 
     /* 招待を送る */
     window.sendShareInvite = async function(friendUid) {
@@ -537,92 +543,90 @@
         status: 'pending', createdAt: Date.now()
       });
       document.getElementById('loading').style.display = 'none';
-      alert(`${f.name}さんに共有の招待を送りました。\n相手がOKすると共同編集できるようになります。`);
-      window.openShareModal();
+      window.showToast(`📨 ${f.name}さんに共有の招待を送りました。相手がOKすると共同編集できます。`);
+      /* 一覧の更新はリアルタイム監視が自動で行う */
     };
 
+    /* 招待の取消（共有設定・メールボックスのどちらからでも呼ばれる） */
     window.cancelShareInvite = async function(inviteId) {
       if(!confirm("この招待を取り消しますか？")) return;
       await gdd(gd(sharesCol, inviteId));
-      window.openShareModal();
     };
 
-    /* 共有解除（アクセスを取り上げるだけなので承認不要・即時） */
+    /* 共有解除（オーナーが sharedWith からメンバーを削除する）
+       ★現在のルールには「オーナーが削除する」パターンが存在しないため、
+         下記の Pattern C をルールに追加しないと permission-denied になります。
+         追加方法: scripts ルールの update ブロックの末尾に
+         // Pattern C: 所有者がメンバーを削除する
+         || (
+           resource.data.userId == request.auth.uid &&
+           request.resource.data.userId == resource.data.userId &&
+           request.resource.data.sharedWith.toSet().hasOnly(resource.data.sharedWith.toSet())
+         )
+         を追加してください */
     window.unshareFriend = async function(friendUid) {
       const p = window.projects.find(x => String(x.id) === String(window.activeId));
       if(!p || !p.sharedWith) return;
       if(!confirm("この作品の共有を解除しますか？相手は編集できなくなります。")) return;
-      p.sharedWith = p.sharedWith.filter(uid => uid !== friendUid);
-      await window.dbSave(p);
-      window.openShareModal();
-    };
-
-    /* 所有者側: 承認済みの招待を取り込み、sharedWith に反映して招待を削除 */
-    async function syncApprovedShareInvites() {
       try {
-        const snap = await ggd(gq(sharesCol, gw("ownerUid", "==", window.currentUser.uid)));
-        for (const d of snap.docs) {
-          const inv = d.data();
-          if(inv.status === 'approved') {
-            const p = window.projects.find(x => String(x.id) === String(inv.scriptId));
-            if(p) {
-              if(!p.sharedWith) p.sharedWith = [];
-              if(!p.sharedWith.includes(inv.to)) {
-                p.sharedWith.push(inv.to);
-                await window.dbSave(p);
-              }
-            }
-            await gdd(gd(sharesCol, d.id));
-          }
+        p.sharedWith = p.sharedWith.filter(uid => uid !== friendUid);
+        await window.dbSave(p);
+        window.refreshShareModalIfOpen();
+      } catch(e) {
+        /* permission-denied の場合はルールに Pattern C が未追加 */
+        if(e.code === 'permission-denied') {
+          alert("共有解除にはFirestoreルールへの追加が必要です。\nルールに Pattern C を追加してください（コードのコメントを参照）。");
+        } else {
+          alert("エラーが発生しました: " + e.message);
         }
-      } catch(e) { console.error("共有招待同期エラー:", e); }
-    }
-
-    /* 共有設定モーダル用: この作品への保留中の招待を取得して行を描画させる */
-    window.fetchShareInvitesForScript = async function(scriptId) {
-      try {
-        await syncApprovedShareInvites();
-        const snap = await ggd(gq(sharesCol, gw("ownerUid", "==", window.currentUser.uid)));
-        const map = {};
-        snap.forEach(d => {
-          const inv = d.data();
-          if(String(inv.scriptId) === String(scriptId) && inv.status === 'pending') map[inv.to] = { id: d.id };
-        });
-        window.renderShareRows(scriptId, map);
-      } catch(e) {
-        console.error(e);
-        const box = document.getElementById('shareListBox');
-        if(box) box.innerHTML = '<p style="font-size:11px;color:var(--text-danger);text-align:center;padding:8px;">読み込みに失敗しました</p>';
+        /* ロールバック: メモリ上のデータを元に戻す */
+        if(!p.sharedWith.includes(friendUid)) p.sharedWith.push(friendUid);
       }
     };
 
-    /* 受信側: 自分宛の共有招待を読み込む */
-    window.loadShareInvites = async function() {
-      const box = document.getElementById('shareInviteBox');
-      if(!box) return;
-      try {
-        const snap = await ggd(gq(sharesCol, gw("to", "==", window.currentUser.uid)));
-        const list = [];
-        snap.forEach(d => { const inv = d.data(); if(inv.status === 'pending') list.push({ id: d.id, ownerName: inv.ownerName, scriptTitle: inv.scriptTitle }); });
-        window.renderShareInvites(list);
-      } catch(e) {
-        console.error(e);
-        box.innerHTML = '<p style="font-size:11px;color:var(--text-danger);text-align:center;padding:8px;">読み込みに失敗しました</p>';
-      }
-    };
-
+    /* 受信側: 招待をOKする
+       ★ルール上の要件（Pattern B）: 「追加される本人」が scripts ドキュメントを書き換えて
+         自分自身を sharedWith に追加しなければならない。
+         このとき、shareInvites/{scriptId}_{自分UID} が status=='approved' で存在することが
+         Firestoreルールで確認される。そのため処理順序が重要:
+         1. 招待の status を 'approved' に更新 ← まずこれ（ルールの証明を作る）
+         2. scripts ドキュメントを読んで自分を sharedWith に追加（Pattern B が通る）
+         3. 招待ドキュメントを削除（後片付け） */
     window.approveShareInvite = async function(inviteId) {
       document.getElementById('loading').style.display = 'block';
-      await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
+      try {
+        /* Step 1: 招待を approved に更新（これがPattern Bの「証明」になる） */
+        await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
+
+        /* Step 2: 招待情報を latestShareDocs から探してscriptIdを特定 */
+        const inv = latestShareDocs.find(d => d.id === inviteId);
+        if(inv && inv.scriptId) {
+          const scriptDoc = await gg(gd(scriptsCol, String(inv.scriptId)));
+          if(scriptDoc.exists()) {
+            const scriptData = scriptDoc.data();
+            if(!scriptData.sharedWith) scriptData.sharedWith = [];
+            if(!scriptData.sharedWith.includes(window.currentUser.uid)) {
+              scriptData.sharedWith.push(window.currentUser.uid);
+              /* Pattern B で書き込む: 自分を追加 & approved な招待が存在する */
+              await gs(gd(scriptsCol, String(inv.scriptId)), scriptData);
+            }
+          }
+        }
+
+        /* Step 3: 招待ドキュメントを削除 */
+        await gdd(gd(sharesCol, inviteId));
+
+        window.showToast("✅ 共同編集をOKしました！作品一覧に追加されます。");
+      } catch(e) {
+        console.error("共有招待の承認エラー:", e);
+        alert("エラーが発生しました。Firestoreルールを確認してください。\n" + e.message);
+      }
       document.getElementById('loading').style.display = 'none';
-      alert("共有をOKしました！\n相手がアプリを開いたタイミングで、あなたの作品一覧にも追加されます。");
-      window.loadShareInvites();
     };
 
     window.declineShareInvite = async function(inviteId) {
       if(!confirm("この共有の招待を断りますか？")) return;
       await gdd(gd(sharesCol, inviteId));
-      window.loadShareInvites();
     };
 
     window.dbSave = async function(p) {
@@ -672,6 +676,7 @@
 <body>
 
 <div id="loading">通信中...</div>
+<div id="toastArea"></div>
 <div id="auth-view" class="auth-container"></div>
 
 <div id="app-content">
@@ -689,6 +694,10 @@
     </div>
     <div class="ml" id="barActions"></div>
 
+    <button class="mailbox-btn" onclick="openMailbox()" title="メールボックス（申請・招待・お知らせ）">
+      <i class="ti ti-mail"></i>
+      <span class="mail-badge" id="mailBadge">0</span>
+    </button>
     <div class="user-badge" onclick="openProfileModal()" title="マイID確認・フレンド管理">
       <i class="ti ti-user" aria-hidden="true"></i>
       <span id="userNameLabel">—</span>
@@ -817,6 +826,8 @@ function updateStatBar(p){
 }
 
 window.openProfileModal = function() {
+  window.mailboxOpen = false;
+  window.shareModalScriptId = null;
   const myId = window.currentUser.uid;
   const u = window.userData;
   let friendListHtml = '';
@@ -824,16 +835,12 @@ window.openProfileModal = function() {
     u.friends.forEach(f => {
       friendListHtml += `<div class="friend-item">
         <span style="overflow-wrap:anywhere;">${escH(f.name)}</span>
-        <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-          <span style="font-size:10px;color:var(--text-muted);">${f.uid.slice(0,8)}...</span>
-          <button class="bs ac-change" style="padding:2px 8px;" onclick="startChat('${f.uid}')" title="このフレンドとチャット"><i class="ti ti-message-circle"></i> チャット</button>
-        </span>
+        <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">${f.uid.slice(0,8)}...</span>
       </div>`;
     });
   } else {
     friendListHtml = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">フレンドはいません</p>';
   }
-  const myTags = (u.hashtags || []).join(' ');
 
   eid('main').innerHTML = `
   <div class="modal-overlay">
@@ -850,8 +857,6 @@ window.openProfileModal = function() {
       <input type="text" id="profNameInput" class="prof-input" maxlength="16" value="${escH(u.name)}">
       <label class="prof-field" for="profBioInput">自己紹介プロフィール（300文字まで）</label>
       <textarea id="profBioInput" class="prof-input" maxlength="300" placeholder="例：コント台本を書いています。ネタ合わせ相手募集中。">${escH(u.profile || '')}</textarea>
-      <label class="prof-field" for="profTagsInput">ハッシュタグ（スペース区切り・10個まで）</label>
-      <input type="text" id="profTagsInput" class="prof-input" value="${escH(myTags)}" placeholder="例：漫才 コント 脚本">
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);margin-top:12px;text-align:left;cursor:pointer;">
         <input type="checkbox" id="friendApprovalChk" ${u.friendApproval ? 'checked' : ''}>
         フレンド追加を許可制にする（あなたを追加するには承認が必要になります）
@@ -860,16 +865,6 @@ window.openProfileModal = function() {
         <button class="act-btn ac" onclick="saveProfile()"><i class="ti ti-device-floppy"></i> プロフィールを保存</button>
       </div>
 
-      <h3 style="margin-top:20px;">フレンド申請</h3>
-      <div class="friend-box" id="friendReqBox"><p style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px;">読み込み中...</p></div>
-
-      <h3 style="margin-top:20px;">ハッシュタグでユーザー検索</h3>
-      <div style="display:flex; gap:6px; margin-top:6px;">
-        <input type="text" id="tagSearchInput" class="prof-input" style="flex:1;" placeholder="例：漫才（#は不要）">
-        <button class="act-btn ac" onclick="searchUsersByTag()"><i class="ti ti-search"></i> 検索</button>
-      </div>
-      <div id="tagSearchResults"></div>
-
       <h3 style="margin-top:20px;">IDでフレンド追加</h3>
       <div style="display:flex; gap:6px; margin-top:6px; margin-bottom:12px;">
         <input type="text" id="friendIdInput" class="prof-input" style="flex:1; font-size:12px;" placeholder="相手のフレンドIDを入力">
@@ -877,146 +872,187 @@ window.openProfileModal = function() {
       </div>
       <h3>フレンド一覧</h3>
       <div class="friend-box">${friendListHtml}</div>
+      <p style="font-size:11px;color:var(--text-muted);text-align:left;margin-top:8px;">
+        <i class="ti ti-info-circle"></i> 届いたフレンド申請や共同編集の招待は、右上の <i class="ti ti-mail"></i> メールボックスで確認・承認できます。
+      </p>
       <div class="modal-actions" style="margin-top:16px;">
         <button class="act-btn" onclick="openProject('${window.activeId || ''}')">閉じる</button>
       </div>
     </div>
   </div>`;
-
-  const tagInp = eid('tagSearchInput');
-  if(tagInp) tagInp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.isComposing) window.searchUsersByTag(); });
-
-  /* 開いたタイミングでフレンド申請を読み込む */
-  if(window.loadFriendRequests) window.loadFriendRequests();
 };
 
-/* フレンド申請一覧を描画（受信＝承認/拒否、送信＝申請中/取消） */
-window.renderFriendRequests = function(incoming, outgoing) {
-  const box = eid('friendReqBox'); if(!box) return;
+/* ===== メールボックス ===== */
+/* 未読数バッジの更新（受信中の申請・招待＋未読お知らせ） */
+window.updateMailBadge = function() {
+  const badge = eid('mailBadge'); if(!badge) return;
+  const box = window.inbox || { friendIn:[], shareIn:[], notices:[] };
+  const count = box.friendIn.length + box.shareIn.length + box.notices.filter(n => n.unread).length;
+  badge.textContent = count > 99 ? '99+' : String(count);
+  badge.style.display = count > 0 ? 'block' : 'none';
+};
+
+window.openMailbox = function() {
+  window.mailboxOpen = true;
+  window.shareModalScriptId = null;
+  renderMailbox();
+  /* 開いたらお知らせを既読にする */
+  (window.inbox.notices || []).forEach(n => n.unread = false);
+  window.updateMailBadge();
+};
+
+window.renderMailboxIfOpen = function() {
+  if(window.mailboxOpen) renderMailbox();
+};
+
+function renderMailbox() {
+  const box = window.inbox;
   let html = '';
-  if(incoming.length) {
-    html += incoming.map(r => `
-      <div class="friend-item">
-        <span style="overflow-wrap:anywhere;"><i class="ti ti-mail" style="color:var(--text-accent)"></i> ${escH(r.fromName)} さんから申請</span>
-        <span style="display:flex;gap:4px;flex-shrink:0;">
+
+  /* 届いたフレンド申請 */
+  html += '<div class="mail-section"><i class="ti ti-user-plus"></i> 届いたフレンド申請</div>';
+  if(box.friendIn.length) {
+    html += box.friendIn.map(r => `
+      <div class="mail-item">
+        <span class="mi-text"><strong>${escH(r.fromName)}</strong> さんからフレンド申請</span>
+        <span class="mi-actions">
           <button class="bs ac-add" onclick="approveFriendRequest('${r.id}')"><i class="ti ti-check"></i> 承認</button>
           <button class="bs ac-danger" onclick="rejectFriendRequest('${r.id}')"><i class="ti ti-x"></i> 拒否</button>
         </span>
       </div>`).join('');
+  } else {
+    html += '<p style="font-size:11px;color:var(--text-muted);padding:4px 6px;text-align:left;">なし</p>';
   }
-  if(outgoing.length) {
-    html += outgoing.map(r => `
-      <div class="friend-item">
-        <span style="overflow-wrap:anywhere;color:var(--text-muted);"><i class="ti ti-clock"></i> ${escH(r.toName)} さんに申請中</span>
+
+  /* 届いた共同編集の招待 */
+  html += '<div class="mail-section"><i class="ti ti-share"></i> 届いた共同編集の招待</div>';
+  if(box.shareIn.length) {
+    html += box.shareIn.map(inv => `
+      <div class="mail-item">
+        <span class="mi-text"><strong>${escH(inv.ownerName)}</strong> さんが「${escH(truncTitle(inv.scriptTitle))}」の共同編集に招待しています</span>
+        <span class="mi-actions">
+          <button class="bs ac-add" onclick="approveShareInvite('${inv.id}')"><i class="ti ti-check"></i> OK</button>
+          <button class="bs ac-danger" onclick="declineShareInvite('${inv.id}')"><i class="ti ti-x"></i> 断る</button>
+        </span>
+      </div>`).join('');
+  } else {
+    html += '<p style="font-size:11px;color:var(--text-muted);padding:4px 6px;text-align:left;">なし</p>';
+  }
+
+  /* 送信済み（申請中・招待中） */
+  if(box.friendOut.length || box.shareOut.length) {
+    html += '<div class="mail-section"><i class="ti ti-clock"></i> 送信済み（相手の返事待ち）</div>';
+    html += box.friendOut.map(r => `
+      <div class="mail-item">
+        <span class="mi-text" style="color:var(--text-muted);">${escH(r.toName)} さんにフレンド申請中</span>
         <button class="bs" onclick="cancelFriendRequest('${r.id}')">取消</button>
       </div>`).join('');
+    html += box.shareOut.map(inv => `
+      <div class="mail-item">
+        <span class="mi-text" style="color:var(--text-muted);">${escH(inv.toName)} さんに「${escH(truncTitle(inv.scriptTitle))}」の招待中</span>
+        <button class="bs" onclick="cancelShareInvite('${inv.id}')">取消</button>
+      </div>`).join('');
   }
-  if(!html) html = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px;">申請はありません</p>';
-  box.innerHTML = html;
-};
 
-/* ハッシュタグ検索の結果を描画 */
-window.renderTagSearchResults = function(results, tag) {
-  const box = eid('tagSearchResults'); if(!box) return;
-  if(!results.length) {
-    box.innerHTML = `<p style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:left;">#${escH(tag)} のユーザーは見つかりませんでした</p>`;
-    return;
+  /* お知らせ */
+  html += '<div class="mail-section"><i class="ti ti-bell"></i> お知らせ</div>';
+  if(box.notices.length) {
+    html += box.notices.map(n => {
+      const t = new Date(n.at).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+      return `<div class="mail-notice">${escH(n.text)}<span class="mn-time">${t}</span></div>`;
+    }).join('');
+  } else {
+    html += '<p style="font-size:11px;color:var(--text-muted);padding:4px 6px;text-align:left;">お知らせはありません</p>';
   }
-  box.innerHTML = results.map(usr => {
-    const already = window.userData.friends.some(f => f.uid === usr.uid);
-    const tags = (usr.hashtags || []).map(t => `<span class="tag-chip">#${escH(t)}</span>`).join('');
-    return `<div class="user-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-        <strong style="overflow-wrap:anywhere;">${escH(usr.name)}</strong>
-        ${already
-          ? '<span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">追加済み</span>'
-          : `<button class="act-btn ac" style="font-size:11px;padding:3px 8px;flex-shrink:0;" onclick="addFriendDirect('${usr.uid}')">フレンド追加</button>`}
-      </div>
-      ${usr.profile ? `<p style="color:var(--text-secondary);margin-top:4px;overflow-wrap:anywhere;line-height:1.6;">${escH(usr.profile)}</p>` : ''}
-      <div style="margin-top:4px;">${tags}</div>
-    </div>`;
-  }).join('');
-};
 
-/* フレンド一覧からチャットを開く（uidから名前を解決してmodule側のopenChatへ） */
-function startChat(uid) {
-  const f = window.userData.friends.find(x => x.uid === uid);
-  if(!f) return;
-  window.openChat(f.uid, f.name);
-}
-
-/* チャット画面の描画 */
-window.renderChatView = function(friendName) {
   eid('main').innerHTML = `
-  <div class="chat-wrap">
-    <div class="chat-head">
-      <button class="act-btn" onclick="closeChat()"><i class="ti ti-arrow-left"></i> 戻る</button>
-      <i class="ti ti-message-circle" style="color:var(--text-accent)"></i>
-      <span style="overflow-wrap:anywhere;">${escH(friendName)}</span>
-    </div>
-    <div class="chat-msgs" id="chatMsgs"><p style="font-size:12px;color:var(--text-muted);text-align:center;">読み込み中...</p></div>
-    <div class="chat-input-row">
-      <textarea id="chatInput" rows="1" placeholder="メッセージを入力（Enterで送信 / Shift+Enterで改行）"></textarea>
-      <button class="act-btn ac" onclick="sendChatMessage()" title="送信"><i class="ti ti-send"></i></button>
+  <div class="modal-overlay">
+    <div class="modal-box" style="max-width: 460px;">
+      <h3><i class="ti ti-mail" style="color:var(--text-accent)"></i> メールボックス</h3>
+      <p class="modal-sub">フレンド申請・共同編集の招待・お知らせがリアルタイムで届きます</p>
+      ${html}
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="act-btn" onclick="closeMailbox()">閉じる</button>
+      </div>
     </div>
   </div>`;
-  const inp = eid('chatInput');
-  inp.addEventListener('keydown', e => {
-    if(e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); window.sendChatMessage(); }
-  });
-  inp.addEventListener('input', e => { e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,110)+'px'; });
-  inp.focus();
+}
+
+window.closeMailbox = function() {
+  window.mailboxOpen = false;
+  if(window.activeId) openProject(window.activeId); else renderEmpty();
 };
 
-/* チャットメッセージ一覧の描画（onSnapshotから呼ばれる） */
-window.renderChatMessages = function(msgs) {
-  const box = eid('chatMsgs'); if(!box) return;
-  if(!msgs.length) {
-    box.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;">まだメッセージはありません。最初のメッセージを送ってみましょう！</p>';
-    return;
-  }
-  box.innerHTML = msgs.map(m => {
-    const me = m.uid === window.currentUser.uid;
-    const t = new Date(m.at).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
-    return `<div class="chat-bubble ${me ? 'me' : 'other'}">
-      ${me ? '' : `<div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;">${escH(m.name)}</div>`}${escH(m.text)}<div class="chat-meta">${t}</div>
-    </div>`;
-  }).join('');
-  box.scrollTop = box.scrollHeight;
+/* トースト通知（画面右上に4秒表示） */
+window.showToast = function(msg) {
+  const area = eid('toastArea'); if(!area) return;
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  area.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 3600);
+  setTimeout(() => { t.remove(); }, 4000);
 };
 
+/* ===== 作品の共有設定（招待制） ===== */
 window.openShareModal = function() {
   const p = window.projects.find(x => String(x.id) === String(window.activeId));
   if(!p) return;
   if(!p.sharedWith) p.sharedWith = [];
-
-  let listHtml = '';
-  if(window.userData.friends && window.userData.friends.length > 0) {
-    window.userData.friends.forEach(f => {
-      const isShared = p.sharedWith.includes(f.uid);
-      listHtml += `
-        <label class="share-checkbox-label">
-          <input type="checkbox" ${isShared ? 'checked' : ''} onchange="toggleShareWithFriend('${f.uid}')">
-          <span>${escH(f.name)}</span>
-        </label>`;
-    });
-  } else {
-    listHtml = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">共有できるフレンドがいません。</p>';
-  }
+  window.mailboxOpen = false;
+  window.shareModalScriptId = p.id;
 
   eid('main').innerHTML = `
   <div class="modal-overlay">
     <div class="modal-box">
       <h3>作品の共有設定</h3>
-      <p class="modal-sub">この作品「${escH(truncTitle(p.title))}」を共同編集するフレンドを選んでください</p>
-      <div style="max-height: 200px; overflow-y: auto; text-align: left; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 0 10px;">
-        ${listHtml}
-      </div>
+      <p class="modal-sub">「${escH(truncTitle(p.title))}」の共同編集にフレンドを招待します。<br>相手がOKすると編集できるようになります。</p>
+      <div id="shareListBox" style="max-height: 240px; overflow-y: auto; text-align: left; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 4px 10px;"></div>
       <div class="modal-actions" style="margin-top:16px;">
-        <button class="act-btn ac" onclick="openProject('${p.id}')">設定完了</button>
+        <button class="act-btn ac" onclick="closeShareModal('${p.id}')">閉じる</button>
       </div>
     </div>
   </div>`;
+  renderShareRows(p.id);
+};
+
+window.closeShareModal = function(pid) {
+  window.shareModalScriptId = null;
+  openProject(pid);
+};
+
+/* 共有設定の行を描画（共有中／招待中／未招待の3状態） */
+function renderShareRows(scriptId) {
+  const box = eid('shareListBox'); if(!box) return;
+  const p = window.projects.find(x => String(x.id) === String(scriptId)); if(!p) return;
+  if(!p.sharedWith) p.sharedWith = [];
+  if(!window.userData.friends || !window.userData.friends.length) {
+    box.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">共有できるフレンドがいません。</p>';
+    return;
+  }
+  const inviteMap = window.shareInviteMapFor ? window.shareInviteMapFor(scriptId) : {};
+  box.innerHTML = window.userData.friends.map(f => {
+    let statusHtml;
+    if(p.sharedWith.includes(f.uid)) {
+      statusHtml = `<span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span style="font-size:10px;color:#059669;font-weight:600;">共有中</span>
+        <button class="bs ac-danger" onclick="unshareFriend('${f.uid}')">解除</button>
+      </span>`;
+    } else if(inviteMap[f.uid]) {
+      statusHtml = `<span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span style="font-size:10px;color:#ea580c;font-weight:600;">相手のOK待ち</span>
+        <button class="bs" onclick="cancelShareInvite('${inviteMap[f.uid].id}')">取消</button>
+      </span>`;
+    } else {
+      statusHtml = `<button class="bs ac-change" style="flex-shrink:0;" onclick="sendShareInvite('${f.uid}')"><i class="ti ti-send"></i> 招待を送る</button>`;
+    }
+    return `<div class="friend-item"><span style="overflow-wrap:anywhere;">${escH(f.name)}</span>${statusHtml}</div>`;
+  }).join('');
+}
+
+/* 共有設定モーダルが開いていれば、リアルタイム更新に合わせて再描画 */
+window.refreshShareModalIfOpen = function() {
+  if(window.shareModalScriptId) renderShareRows(window.shareModalScriptId);
 };
 
 function toggleSidebar(){
@@ -1174,8 +1210,8 @@ function createProject(){
 
 window.openProject = function(id, fromFirebase = false){
   if (!id) return renderEmpty();
-  /* チャット画面から作品に戻るときはチャットの購読を停止する */
-  if(!fromFirebase && window.activeChat && window.stopChatListener){ window.stopChatListener(); window.activeChat = null; }
+  /* ユーザー操作で作品を開いたときはメールボックス・共有設定の表示状態を解除する */
+  if(!fromFirebase){ window.mailboxOpen = false; window.shareModalScriptId = null; }
   if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
     const activeP = window.projects.find(x=>String(x.id)===String(id));
     if(activeP) {
