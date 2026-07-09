@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台本・文字数カウンターエディタ (マルチユーザー版)</title>
+  <title>台本・文字数カウンターエディタ (修正案・共同編集版)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   
   <style>
@@ -22,7 +22,6 @@
     #root{display:flex;flex-direction:column;min-height:100vh}
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
     
-    /* ログイン・登録画面のスタイル */
     .auth-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
     .auth-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .auth-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
@@ -41,12 +40,12 @@
     .stat-chip.ac .sc-lbl{color:var(--text-accent)}
     #statbar .ml{margin-left:auto;display:flex;gap:8px;align-items:center}
     
-    /* ユーザー情報表示 */
-    .user-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); background: #fff; border: 0.5px solid var(--border); padding: 3px 8px; border-radius: 20px; }
+    .user-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); background: #fff; border: 0.5px solid var(--border); padding: 3px 12px; border-radius: 20px; cursor: pointer; }
+    .user-badge:hover { background: var(--bg-accent); border-color: var(--border-accent); }
     .btn-logout { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px; display: flex; align-items: center; }
     .btn-logout:hover { color: var(--text-danger); }
 
-    #shell{display:flex;flex:1;min-height:0}
+    #shell{display:flex;flex:1;min-height:0;position:relative;overflow:hidden;}
     #sidebar{width:200px;flex-shrink:0;border-right:0.5px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:3px;transition:width .2s;background:#fff}
     #sidebar.closed{width:40px;overflow:hidden}
     .sb-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius);cursor:pointer;color:var(--text-secondary);border:0.5px solid var(--border);background:none;margin-bottom:6px;flex-shrink:0}
@@ -105,7 +104,7 @@
     .speaker-chip:not(.active){opacity:.4}
     .alt-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:.6rem}
     
-    .line-container{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;transition: opacity 0.2s;}
+    .line-container{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;transition: opacity 0.2s;position:relative;}
     .line-container.dragging { opacity: 0.4; background: var(--bg-accent); border-radius: var(--radius); }
     .line{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface-2)}
     .line:hover{border-color:var(--border-strong)}
@@ -125,6 +124,8 @@
     .bs.ac-danger:hover{background:#fca5a5}
     .bs.ac-add{background:#e1f5ee;border-color:#a7f3d0;color:#059669;font-weight:500}
     .bs.ac-add:hover{background:#bbf7d0}
+    .bs.ac-proposal{background:#fff7ed;border-color:#fed7aa;color:#ea580c;font-weight:500}
+    .bs.ac-proposal:hover{background:#ffedd5}
     
     .add-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:1px dashed var(--border);padding-top:12px;margin-top:12px}
     .act-btn{font-size:12px;border-radius:var(--radius);padding:5px 12px;cursor:pointer;background:var(--surface-1);border:0.5px solid var(--border);color:var(--text-primary)}
@@ -146,14 +147,31 @@
     .empty .ei{font-size:32px;margin-bottom:4px}
     .empty p{font-size:14px}
     #loading{position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.7);color:white;padding:5px 10px;border-radius:4px;font-size:11px;display:none;z-index:999;}
+
+    .friend-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; margin-top: 10px; max-height: 150px; overflow-y: auto; text-align: left; }
+    .friend-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 4px 6px; border-bottom: 0.5px solid var(--surface-1); }
+    .id-copy-btn { font-size: 10px; padding: 2px 6px; background: var(--surface-1); border: 0.5px solid var(--border); border-radius: 4px; cursor: pointer; margin-left: 6px;}
+    .share-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 0.5px solid var(--surface-1); cursor: pointer; }
+
+    /* 💡 修正案サイドバー関連のスタイル */
+    #proposal-sidebar { position: absolute; top: 0; right: -280px; width: 280px; height: 100%; background: #fff; border-left: 1px solid var(--border); box-shadow: -2px 0 8px rgba(0,0,0,0.05); z-index: 100; display: flex; flex-direction: column; transition: right 0.25s ease; }
+    #proposal-sidebar.open { right: 0; }
+    .ps-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fff7ed; border-bottom: 0.5px solid var(--border); font-size: 13px; font-weight: 600; color: #ea580c; }
+    .ps-close { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; }
+    .ps-content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .prop-card { background: #fff7ed; border: 0.5px solid #fed7aa; border-radius: var(--radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+    .prop-meta { font-size: 10px; color: #c2410c; display: flex; justify-content: space-between; font-weight: 500; }
+    .prop-text { width: 100%; font-size: 12px; line-height: 1.5; padding: 6px; border-radius: 4px; border: 0.5px solid #fed7aa; outline: none; resize: vertical; font-family: var(--font-sans); }
+    .prop-actions { display: flex; gap: 4px; justify-content: flex-end; }
+    .badge-prop-count { display: inline-flex; align-items: center; justify-content: center; background: #ea580c; color: white; border-radius: 10px; font-size: 9px; padding: 1px 5px; font-weight: bold; margin-left: 2px; }
   </style>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, query, where, onSnapshot, or } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 🟢 提供していただいた Firebase 設定を埋め込みました
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
       authDomain: "text-for-m.firebaseapp.com",
@@ -165,26 +183,20 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const db = gf(app);
     const auth = getAuth(app);
-    const scriptsCol = collection(db, "scripts");
-    const usersCol = collection(db, "users");
+    const scriptsCol = gc(db, "scripts");
+    const usersCol = gc(db, "users");
 
     window.currentUser = null;
     window.userData = null;
     let unsubscribeScripts = null;
 
-    // Googleログイン処理
     window.loginWithGoogle = async function() {
       const provider = new GoogleAuthProvider();
-      try {
-        await signInWithPopup(auth, provider);
-      } catch (e) {
-        alert("ログインに失敗しました: " + e.message);
-      }
+      try { await signInWithPopup(auth, provider); } catch (e) { alert("ログインに失敗しました: " + e.message); }
     };
 
-    // ログアウト処理
     window.logout = async function() {
       if(confirm("ログアウト（アカウント切り替え準備）をしますか？")) {
         if(unsubscribeScripts) unsubscribeScripts();
@@ -193,38 +205,114 @@
       }
     };
 
-    // 新規ユーザーの名前登録処理
     window.registerUserName = async function() {
       const nameInput = document.getElementById("regNameInput");
       const name = nameInput ? nameInput.value.trim() : "";
       if(!name) { alert("名前を入力してください。"); return; }
       
       document.getElementById('loading').style.display = 'block';
-      const uData = { uid: window.currentUser.uid, name: name, email: window.currentUser.email };
-      await setDoc(doc(usersCol, window.currentUser.uid), uData);
+      const uData = { uid: window.currentUser.uid, name: name, email: window.currentUser.email, friends: [] };
+      await gs(gd(usersCol, window.currentUser.uid), uData);
       window.userData = uData;
       document.getElementById('loading').style.display = 'none';
-      
       initAppReady();
     };
 
-    // ログイン状態の監視
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         window.currentUser = user;
-        // ユーザープロファイル（独自の名前）がFirestoreにあるかチェック
-        const userDoc = await getDoc(doc(usersCol, user.uid));
+        const userDoc = await gg(gd(usersCol, user.uid));
         if (userDoc.exists()) {
           window.userData = userDoc.data();
+          if(!window.userData.friends) window.userData.friends = [];
           initAppReady();
         } else {
-          // 未登録の場合は名前入力画面を出す
           renderNameRegistration();
         }
       } else {
         renderLoginView();
       }
     });
+
+    function initAppReady() {
+      document.getElementById("auth-view").style.display = "none";
+      document.getElementById("app-content").style.display = "flex";
+      document.getElementById("userNameLabel").textContent = window.userData.name;
+
+      const q = gq(scriptsCol, gor(
+        gw("userId", "==", window.currentUser.uid),
+        gw("sharedWith", "array-contains", window.currentUser.uid)
+      ));
+      
+      unsubscribeScripts = gos(q, (snapshot) => {
+        let imported = [];
+        snapshot.forEach(doc => { imported.push(doc.data()); });
+        window.projects = imported.sort((a,b) => a.id - b.id);
+        window.uid = window.projects.length ? Math.max(...window.projects.map(p => p.id), ...window.projects.flatMap(p => p.lines ? p.lines.map(l => l.id) : [])) + 1 : 1;
+        
+        if(!window.activeId && window.projects.length) {
+          window.activeId = window.projects[window.projects.length - 1].id;
+        }
+        window.renderSidebar();
+        if(window.activeId) {
+          window.openProject(window.activeId, true);
+        } else {
+          window.renderEmpty();
+        }
+      });
+    }
+
+    window.addFriendById = async function() {
+      const fId = document.getElementById("friendIdInput").value.trim();
+      if(!fId) return alert("IDを入力してください。");
+      if(fId === window.currentUser.uid) return alert("自分のIDは追加できません。");
+      if(window.userData.friends.some(f => f.uid === fId)) return alert("既にフレンドに登録されています。");
+
+      document.getElementById('loading').style.display = 'block';
+      const targetUserDoc = await gg(gd(usersCol, fId));
+      if(!targetUserDoc.exists()) {
+        document.getElementById('loading').style.display = 'none';
+        return alert("指定されたIDのユーザーが見つかりませんでした。");
+      }
+
+      const targetData = targetUserDoc.data();
+      window.userData.friends.push({ uid: targetData.uid, name: targetData.name });
+      await gs(gd(usersCol, window.currentUser.uid), window.userData);
+      document.getElementById('loading').style.display = 'none';
+      alert(`${targetData.name}さんをフレンドに追加しました！`);
+      window.openProfileModal();
+    };
+
+    window.toggleShareWithFriend = async function(friendUid) {
+      const p = window.projects.find(x => x.id === window.activeId);
+      if(!p) return;
+      if(!p.sharedWith) p.sharedWith = [];
+
+      if(p.sharedWith.includes(friendUid)) {
+        p.sharedWith = p.sharedWith.filter(uid => uid !== friendUid);
+      } else {
+        p.sharedWith.push(friendUid);
+      }
+      await window.dbSave(p);
+      window.openShareModal();
+    };
+
+    window.dbSave = async function(p) {
+      if(!p || !p.id || !window.currentUser) return;
+      document.getElementById('loading').style.display = 'block';
+      if(!p.userId) p.userId = window.currentUser.uid;
+      if(!p.sharedWith) p.sharedWith = [];
+      const cleanData = JSON.parse(JSON.stringify(p));
+      await gs(gd(scriptsCol, String(p.id)), cleanData);
+      document.getElementById('loading').style.display = 'none';
+    };
+
+    window.dbDelete = async function(id) {
+      if(!window.currentUser) return;
+      document.getElementById('loading').style.display = 'block';
+      await gdd(gd(scriptsCol, String(id)));
+      document.getElementById('loading').style.display = 'none';
+    };
 
     function renderLoginView() {
       document.getElementById("auth-view").innerHTML = `
@@ -251,59 +339,11 @@
       document.getElementById("auth-view").style.display = "flex";
       document.getElementById("app-content").style.display = "none";
     }
-
-    // ログイン＆名前確認が完了した後のメイン初期化
-    function initAppReady() {
-      document.getElementById("auth-view").style.display = "none";
-      document.getElementById("app-content").style.display = "flex";
-      
-      document.getElementById("userNameLabel").textContent = window.userData.name;
-
-      // ログイン中ユーザーのデータ（userIdが一致するもの）だけをリアルタイム購読
-      const q = query(scriptsCol, where("userId", "==", window.currentUser.uid));
-      
-      unsubscribeScripts = onSnapshot(q, (snapshot) => {
-        let imported = [];
-        snapshot.forEach(doc => {
-          imported.push(doc.data());
-        });
-        window.projects = imported.sort((a,b) => a.id - b.id);
-        window.uid = window.projects.length ? Math.max(...window.projects.map(p => p.id)) + 1 : 1;
-        
-        if(!window.activeId && window.projects.length) {
-          window.activeId = window.projects[window.projects.length - 1].id;
-        }
-        window.renderSidebar();
-        if(window.activeId) {
-          window.openProject(window.activeId, true);
-        } else {
-          window.renderEmpty();
-        }
-      });
-    }
-
-    // 既存のセーブ・デリート処理にuserIdを付与
-    window.dbSave = async function(p) {
-      if(!p || !p.id || !window.currentUser) return;
-      document.getElementById('loading').style.display = 'block';
-      p.userId = window.currentUser.uid; // 必ず自分のUIDを紐付ける
-      const cleanData = JSON.parse(JSON.stringify(p));
-      await setDoc(doc(scriptsCol, String(p.id)), cleanData);
-      document.getElementById('loading').style.display = 'none';
-    };
-
-    window.dbDelete = async function(id) {
-      if(!window.currentUser) return;
-      document.getElementById('loading').style.display = 'block';
-      await deleteDoc(doc(scriptsCol, String(id)));
-      document.getElementById('loading').style.display = 'none';
-    };
   </script>
 </head>
 <body>
 
 <div id="loading">通信中...</div>
-
 <div id="auth-view" class="auth-container"></div>
 
 <div id="app-content">
@@ -321,7 +361,7 @@
     </div>
     <div class="ml" id="barActions"></div>
     
-    <div class="user-badge">
+    <div class="user-badge" onclick="openProfileModal()" title="マイID確認・フレンド管理">
       <i class="ti ti-user" aria-hidden="true"></i>
       <span id="userNameLabel">—</span>
     </div>
@@ -341,12 +381,22 @@
         <span>新規作品</span>
       </div>
     </div>
+    
     <div id="ctxMenu">
       <div class="ctx-item" id="ctxRename" onclick="ctxAction('rename')"><i class="ti ti-pencil" style="font-size:14px"></i> 名前を変更</div>
       <div class="ctx-item" id="ctxCopy" onclick="ctxAction('copy')"><i class="ti ti-copy" style="font-size:14px"></i> 全文コピー</div>
       <div class="ctx-item danger" onclick="ctxAction('delete')"><i class="ti ti-trash" style="font-size:14px"></i> 削除</div>
     </div>
+    
     <div id="main"></div>
+
+    <div id="proposal-sidebar">
+      <div class="ps-header">
+        <span><i class="ti ti-git-pull-request"></i> この行の修正案一覧</span>
+        <button class="ps-close" onclick="closeProposalSidebar()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="ps-content" id="proposalSidebarContent"></div>
+    </div>
   </div>
 </div>
 
@@ -372,6 +422,7 @@ window.activeId = null;
 let sidebarOpen=true;
 let ctxTargetId=null;
 let newModalMode='script';
+let activeLineProposalId = null; // 現在どの行の修正案サイドバーを開いているか
 
 let saveTimeout = null;
 function triggerSave(p) {
@@ -386,6 +437,7 @@ function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function truncTitle(s){return s ? (s.length>9?s.slice(0,9)+'…':s) : '無題'}
 function applyFilters(t,f){
   let s=t;
+  if(!f) return s;
   if(f.space)s=s.replace(RE_SP,'');
   if(f.punct)s=s.replace(RE_PU,'');
   if(f.symbol)s=s.replace(RE_SY,'');
@@ -398,24 +450,100 @@ function autoResize(ta){
   ta.style.height='auto';
   ta.style.height=ta.scrollHeight+'px';
 }
-
-function autoResizeAll() {
-  document.querySelectorAll('.line-text').forEach(ta => autoResize(ta));
-}
+function autoResizeAll() { document.querySelectorAll('.line-text').forEach(ta => autoResize(ta)); }
 
 function getProjectText(p){
   if(p.mode==='simple')return p.text||'';
   if(!p.lines)return '';
   return p.lines.map(l=>l.text).join('');
 }
+
 function updateStatBar(p){
   if(!p){eid('barTitle').textContent='—';eid('barAll').textContent='0';eid('barFlt').textContent='0';eid('barActions').innerHTML='';return;}
-  eid('barTitle').textContent=truncTitle(p.title);
+  const isShared = p.userId !== window.currentUser.uid;
+  eid('barTitle').innerHTML = isShared ? `<i class="ti ti-users" style="color:var(--text-accent);font-size:14px;"></i> ${escH(truncTitle(p.title))}` : escH(truncTitle(p.title));
+  
   const raw=getProjectText(p);
   eid('barAll').textContent=raw.length.toLocaleString();
   eid('barFlt').textContent=applyFilters(raw,p.filters).length.toLocaleString();
-  eid('barActions').innerHTML=`<button class="act-btn ac" onclick="exportCurrent()"><i class="ti ti-download" aria-hidden="true"></i> 出力</button>`;
+  
+  let actionsHtml = `<button class="act-btn ac" onclick="exportCurrent()"><i class="ti ti-download"></i> 出力</button>`;
+  if(!isShared) {
+    actionsHtml += `<button class="act-btn" style="border-color:var(--border-accent);color:var(--text-accent);" onclick="openShareModal()"><i class="ti ti-share"></i> 共有設定</button>`;
+  }
+  eid('barActions').innerHTML = actionsHtml;
 }
+
+window.openProfileModal = function() {
+  const myId = window.currentUser.uid;
+  let friendListHtml = '';
+  if(window.userData.friends && window.userData.friends.length > 0) {
+    window.userData.friends.forEach(f => {
+      friendListHtml += `<div class="friend-item"><span>${escH(f.name)}</span><span style="font-size:10px;color:var(--text-muted);">${f.uid.slice(0,8)}...</span></div>`;
+    });
+  } else {
+    friendListHtml = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">フレンドはいません</p>';
+  }
+
+  eid('main').innerHTML = `
+  <div class="modal-overlay">
+    <div class="modal-box" style="max-width: 400px;">
+      <h3>マイアカウント確認</h3>
+      <p class="modal-sub">あなたの名前とフレンドIDです</p>
+      <div style="background:var(--surface-1); padding:10px; border-radius:var(--radius); font-size:13px; margin-bottom:16px; text-align:left;">
+        <div><strong>名前:</strong> ${escH(window.userData.name)}</div>
+        <div style="margin-top:6px; display:flex; align-items:center;">
+          <strong>あなたのID:</strong> <span style="font-family:monospace; margin-left:4px; color:var(--text-accent);">${myId}</span>
+          <button class="id-copy-btn" onclick="navigator.clipboard.writeText('${myId}');alert('IDをコピーしました！');">コピー</button>
+        </div>
+      </div>
+      <h3 style="margin-top:16px;">フレンド追加</h3>
+      <div style="display:flex; gap:6px; margin-top:6px; margin-bottom:12px;">
+        <input type="text" id="friendIdInput" placeholder="相手のフレンドIDを入力" style="flex:1; padding:6px; border-radius:6px; border:0.5px solid var(--border); outline:none; font-size:12px;">
+        <button class="act-btn ac" onclick="addFriendById()">追加</button>
+      </div>
+      <h3>フレンド一覧</h3>
+      <div class="friend-box">${friendListHtml}</div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="act-btn" onclick="openProject(${window.activeId || 'null'})">閉じる</button>
+      </div>
+    </div>
+  </div>`;
+};
+
+window.openShareModal = function() {
+  const p = window.projects.find(x => x.id === window.activeId);
+  if(!p) return;
+  if(!p.sharedWith) p.sharedWith = [];
+
+  let listHtml = '';
+  if(window.userData.friends && window.userData.friends.length > 0) {
+    window.userData.friends.forEach(f => {
+      const isShared = p.sharedWith.includes(f.uid);
+      listHtml += `
+        <label class="share-checkbox-label">
+          <input type="checkbox" ${isShared ? 'checked' : ''} onchange="toggleShareWithFriend('${f.uid}')">
+          <span>${escH(f.name)}</span>
+        </label>`;
+    });
+  } else {
+    listHtml = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">共有できるフレンドがいません。</p>';
+  }
+
+  eid('main').innerHTML = `
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <h3>作品の共有設定</h3>
+      <p class="modal-sub">この作品「${escH(truncTitle(p.title))}」を共同編集するフレンドを選んでください</p>
+      <div style="max-height: 200px; overflow-y: auto; text-align: left; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 0 10px;">
+        ${listHtml}
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="act-btn ac" onclick="openProject(${p.id})">設定完了</button>
+      </div>
+    </div>
+  </div>`;
+};
 
 function toggleSidebar(){
   sidebarOpen=!sidebarOpen;
@@ -428,12 +556,14 @@ window.renderSidebar = function(){
   window.projects.forEach(p=>{
     const div=document.createElement('div');
     const isScript=p.mode==='script';
+    const isShared = p.userId !== window.currentUser.uid;
     div.className='sb-item'+(isScript?' script-item':'')+(window.activeId===p.id?' active':'');
-    const icon=isScript?'ti-file-text':'ti-text-size';
+    const icon = isShared ? 'ti-users' : (isScript ? 'ti-file-text' : 'ti-text-size');
+    
     div.innerHTML=`<i class="ti ${icon} sb-icon" aria-hidden="true"></i>
       <span class="sb-name">${escH(truncTitle(p.title))}</span>
-      <span class="sb-dots" onclick="openCtxMenu(event,${p.id})" title="編集メニュー">···</span>`;
-    div.addEventListener('click',e=>{if(!e.target.closest('.sb-dots'))openProject(p.id);});
+      ${!isShared ? `<span class="sb-dots" onclick="openCtxMenu(event,${p.id})" title="編集メニュー">···</span>` : ''}`;
+    div.addEventListener('click', e=>{if(!e.target.closest('.sb-dots')) openProject(p.id);});
     list.appendChild(div);
   });
 }
@@ -448,9 +578,8 @@ function openCtxMenu(e,id){
   menu.style.left=(rect.left-shellRect.left+20)+'px';
   menu.style.top=(rect.top-shellRect.top+20)+'px';
 }
-function closeCtxMenu(){eid('ctxMenu').classList.remove('open');ctxTargetId=null;}
 document.addEventListener('click',()=>closeCtxMenu());
-eid('ctxMenu').addEventListener('click',e=>e.stopPropagation());
+function closeCtxMenu(){ const m=eid('ctxMenu'); if(m) m.classList.remove('open'); ctxTargetId=null; }
 
 function ctxAction(action){
   const p=window.projects.find(x=>x.id===ctxTargetId);
@@ -473,8 +602,7 @@ function openRenameModal(p){
       </div>
     </div>
   </div>`;
-  const inp=eid('renameInput');
-  inp.focus();inp.select();
+  const inp=eid('renameInput'); inp.focus(); inp.select();
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')doRename(p.id);if(e.key==='Escape')openProject(p.id);});
 }
 function doRename(id){
@@ -500,7 +628,7 @@ function confirmDelete(p){
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">この操作は取り消せません。</p>
       <div class="modal-actions">
         <button class="act-btn" onclick="openProject(${p.id})">キャンセル</button>
-        <button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger)" onclick="doDelete(${p.id})"><i class="ti ti-trash" aria-hidden="true"></i> 削除する</button>
+        <button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger)" onclick="doDelete(${p.id})"><i class="ti ti-trash"></i> 削除する</button>
       </div>
     </div>
   </div>`;
@@ -550,7 +678,7 @@ function selectNewMode(m){
 function createProject(){
   const titleEl=eid('newTitle');
   const title=(titleEl?titleEl.value.trim():'')||'無題';
-  const p={id:window.uid++,title,mode:newModalMode,filters:{space:true,punct:true,symbol:true,bracket:true}};
+  const p={id:window.uid++,title,mode:newModalMode,filters:{space:true,punct:true,symbol:true,bracket:true}, sharedWith:[]};
   if(newModalMode==='script'){
     p.setupRows=[{id:window.uid++,name:'',color:COLORS[0]},{id:window.uid++,name:'',color:COLORS[2]}];
     p.speakers=null;p.lines=null;p.activeSpId=null;p.altMode=true;
@@ -564,10 +692,12 @@ function createProject(){
 window.openProject = function(id, fromFirebase = false){
   if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
     const activeP = window.projects.find(x=>x.id===id);
-    if(activeP) updateStatBar(activeP);
+    if(activeP) {
+      updateStatBar(activeP);
+      if(activeLineProposalId) renderProposalSidebarContent(activeP, activeLineProposalId);
+    }
     return;
   }
-
   window.activeId=id;window.renderSidebar();
   const p=window.projects.find(x=>x.id===id);
   if(!p)return renderEmpty();
@@ -575,6 +705,8 @@ window.openProject = function(id, fromFirebase = false){
   if(p.mode==='simple')renderSimple(p);
   else if(p.speakers)renderScriptEditor(p);
   else renderSetup(p);
+  
+  if(activeLineProposalId) closeProposalSidebar();
 }
 window.renderEmpty = function(){
   window.activeId=null;updateStatBar(null);
@@ -587,10 +719,10 @@ function renderSimple(p){
   <div class="top-bar"><span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span></div>
   <div class="filter-row">
     <span>除外：</span>
-    <label><input type="checkbox" id="fSp" ${p.filters.space?'checked':''} onchange="simFilter(${p.id})"> 空白・改行</label>
-    <label><input type="checkbox" id="fPu" ${p.filters.punct?'checked':''} onchange="simFilter(${p.id})"> 句読点・記号</label>
-    <label><input type="checkbox" id="fSy" ${p.filters.symbol?'checked':''} onchange="simFilter(${p.id})"> 英数字記号</label>
-    <label><input type="checkbox" id="fBr" ${p.filters.bracket?'checked':''} onchange="simFilter(${p.id})"> 括弧類</label>
+    <label><input type="checkbox" id="fSp" ${p.filters?.space?'checked':''} onchange="simFilter(${p.id})"> 空白・改行</label>
+    <label><input type="checkbox" id="fPu" ${p.filters?.punct?'checked':''} onchange="simFilter(${p.id})"> 句読点・記号</label>
+    <label><input type="checkbox" id="fSy" ${p.filters?.symbol?'checked':''} onchange="simFilter(${p.id})"> 英数字記号</label>
+    <label><input type="checkbox" id="fBr" ${p.filters?.bracket?'checked':''} onchange="simFilter(${p.id})"> 括弧類</label>
   </div>
   <textarea class="simple-textarea" id="simTA" placeholder="ここにテキストを入力...">${escH(p.text)}</textarea>
   <div class="add-bar">
@@ -651,7 +783,7 @@ function startScript(pid){
   const p=window.projects.find(x=>x.id===pid);if(!p)return;
   p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value.trim();});
   p.speakers=p.setupRows.map(r=>({id:r.id,name:r.name||'話者'+r.id,color:r.color}));
-  p.lines=[{id:window.uid++,type:'line',speakerId:p.speakers[0].id,text:''}];
+  p.lines=[{id:window.uid++,type:'line',speakerId:p.speakers[0].id,text:'',proposals:[]}];
   p.activeSpId=p.speakers[0].id;
   if(window.dbSave) window.dbSave(p);
   renderScriptEditor(p);
@@ -666,10 +798,10 @@ function renderScriptEditor(p){
   </div>
   <div class="filter-row">
     <span>除外：</span>
-    <label><input type="checkbox" id="sfSp" ${p.filters.space?'checked':''} onchange="scFilter(${p.id})"> 空白・改行</label>
-    <label><input type="checkbox" id="sfPu" ${p.filters.punct?'checked':''} onchange="scFilter(${p.id})"> 句読点・記号</label>
-    <label><input type="checkbox" id="sfSy" ${p.filters.symbol?'checked':''} onchange="changeFilter(${p.id},'symbol',this.checked)"> 英数字記号</label>
-    <label><input type="checkbox" id="sfBr" ${p.filters.bracket?'checked':''} onchange="changeFilter(${p.id},'bracket',this.checked)"> 括弧類</label>
+    <label><input type="checkbox" id="sfSp" ${p.filters?.space?'checked':''} onchange="scFilter(${p.id})"> 空白・改行</label>
+    <label><input type="checkbox" id="sfPu" ${p.filters?.punct?'checked':''} onchange="scFilter(${p.id})"> 句読点・記号</label>
+    <label><input type="checkbox" id="sfSy" ${p.filters?.symbol?'checked':''} onchange="changeFilter(${p.id},'symbol',this.checked)"> 英数字記号</label>
+    <label><input type="checkbox" id="sfBr" ${p.filters?.bracket?'checked':''} onchange="changeFilter(${p.id},'bracket',this.checked)"> 括弧類</label>
   </div>
   <div class="speakers-bar" id="spBar"></div>
   <div class="alt-toggle">
@@ -709,10 +841,7 @@ function getNextSpId(p, targetIndex = null){
   let baseLine = null;
   if (targetIndex !== null) {
     for (let i = targetIndex; i >= 0; i--) {
-      if (p.lines[i] && p.lines[i].type === 'line') {
-        baseLine = p.lines[i];
-        break;
-      }
+      if (p.lines[i] && p.lines[i].type === 'line') { baseLine = p.lines[i]; break; }
     }
   } else {
     const ls=p.lines.filter(l=>l.type==='line');
@@ -726,104 +855,82 @@ function getNextSpId(p, targetIndex = null){
 function addLine(pid){
   const p=window.projects.find(x=>x.id===pid);if(!p)return;
   const sid=getNextSpId(p);p.activeSpId=sid;
-  p.lines.push({id:window.uid++,type:'line',speakerId:sid,text:''});
+  p.lines.push({id:window.uid++,type:'line',speakerId:sid,text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderSpBar(p);renderLines(p);
   setTimeout(()=>{
     const ts=document.querySelectorAll('.line-text');
-    if(ts.length){
-      const target=ts[ts.length-1]; 
-      target.focus(); 
-      autoResizeAll();
-    }
+    if(ts.length){ const target=ts[ts.length-1]; target.focus(); autoResizeAll(); }
   },30);
 }
 function insertLineAfter(pid, index) {
   const p=window.projects.find(x=>x.id===pid);if(!p)return;
   const sid=getNextSpId(p, index); p.activeSpId=sid;
-  p.lines.splice(index + 1, 0, {id:window.uid++,type:'line',speakerId:sid,text:''});
+  p.lines.splice(index + 1, 0, {id:window.uid++,type:'line',speakerId:sid,text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderSpBar(p);renderLines(p);
   setTimeout(()=>{
     const containers = document.querySelectorAll('.line-container');
     if(containers[index + 1]) {
       const ta = containers[index + 1].querySelector('.line-text');
-      if(ta) { 
-        ta.focus(); 
-        autoResizeAll();
-      }
+      if(ta) { ta.focus(); autoResizeAll(); }
     }
   },30);
 }
 function insertStageAfter(pid, index) {
   const p=window.projects.find(x=>x.id===pid);if(!p)return;
-  p.lines.splice(index + 1, 0, {id:window.uid++,type:'stage',text:''});
+  p.lines.splice(index + 1, 0, {id:window.uid++,type:'stage',text:'',proposals:[]});
   if(window.dbSave) window.dbSave(p);
   renderLines(p);
   setTimeout(()=>{
     const containers = document.querySelectorAll('.line-container');
     if(containers[index + 1]) {
       const ta = containers[index + 1].querySelector('.line-text');
-      if(ta) { 
-        ta.focus(); 
-        autoResizeAll();
-      }
+      if(ta) { ta.focus(); autoResizeAll(); }
     }
   },30);
 }
 
-function addStage(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.lines.push({id:window.uid++,type:'stage',text:''});if(window.dbSave) window.dbSave(p);renderLines(p);}
+function addStage(pid){const p=window.projects.find(x=>x.id===pid);if(!p)return;p.lines.push({id:window.uid++,type:'stage',text:'',proposals:[]});if(window.dbSave) window.dbSave(p);renderLines(p);}
 
 function delLine(pid,i){
   const p=window.projects.find(x=>x.id===pid);if(!p||p.lines.length<=1)return;
   if (confirm("この行（セリフ・ト書き）を削除してもよろしいですか？")) {
-    p.lines.splice(i,1);
-    if(window.dbSave) window.dbSave(p);
-    renderLines(p);
+    p.lines.splice(i,1); if(window.dbSave) window.dbSave(p); renderLines(p);
   }
 }
 
 function cycleSpk(pid,i){const p=window.projects.find(x=>x.id===pid);if(!p)return;const l=p.lines[i];if(l.type==='stage') return;const idx=p.speakers.findIndex(s=>s.id===l.speakerId);l.speakerId=p.speakers[(idx+1)%p.speakers.length].id;if(window.dbSave) window.dbSave(p);renderLines(p);}
 
 let dragStartIndex = null;
-function handleDragStart(e, index) {
-  dragStartIndex = index;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-function handleDragOver(e, index) {
-  e.preventDefault();
-}
+function handleDragStart(e, index) { dragStartIndex = index; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+function handleDragOver(e) { e.preventDefault(); }
 function handleDragDrop(pid, index) {
   if (dragStartIndex === null || dragStartIndex === index) return;
-  const p = window.projects.find(x => x.id === pid);
-  if (!p) return;
-  
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
   const draggedItem = p.lines.splice(dragStartIndex, 1)[0];
   p.lines.splice(index, 0, draggedItem);
-  
   if (window.dbSave) window.dbSave(p);
-  renderLines(p);
-  dragStartIndex = null;
+  renderLines(p); dragStartIndex = null;
 }
-function handleDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
-  dragStartIndex = null;
-}
+function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); dragStartIndex = null; }
 
 function renderLines(p){
   const list=eid('linesList');if(!list)return;list.innerHTML='';
   p.lines.forEach((l,i)=>{
+    if(!l.proposals) l.proposals = [];
     const container = document.createElement('div');
     container.className = 'line-container';
     container.draggable = true;
     
     container.addEventListener('dragstart', (e) => handleDragStart(e, i));
-    container.addEventListener('dragover', (e) => handleDragOver(e, i));
+    container.addEventListener('dragover', handleDragOver);
     container.addEventListener('drop', () => handleDragDrop(p.id, i));
     container.addEventListener('dragend', handleDragEnd);
 
     const div=document.createElement('div');
+    const pCountHtml = l.proposals.length ? `<span class="badge-prop-count">${l.proposals.length}</span>` : '';
+
     if(l.type==='stage'){
       div.className='line stage';
       div.innerHTML=`<span class="line-speaker" style="color:var(--text-muted);font-style:italic" title="ドラッグして並び替え">ト書き</span>
@@ -833,11 +940,11 @@ function renderLines(p){
       actionRow.className = 'line-inline-actions';
       actionRow.innerHTML = `
         <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-proposal" onclick="openProposalSidebarForLine(${p.id}, ${l.id})"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
         <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
         <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
       
-      container.appendChild(div);
-      container.appendChild(actionRow);
+      container.appendChild(div); container.appendChild(actionRow);
     } else {
       const sp=p.speakers.find(s=>s.id===l.speakerId)||p.speakers[0];
       div.className='line';div.style.borderLeftWidth='3px';div.style.borderLeftColor=sp.color.text;
@@ -849,31 +956,19 @@ function renderLines(p){
       actionRow.innerHTML = `
         <button class="bs ac-change" onclick="cycleSpk(${p.id},${i})" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
         <button class="bs ac-danger" onclick="delLine(${p.id},${i})"><i class="ti ti-trash"></i> 削除</button>
+        <button class="bs ac-proposal" onclick="openProposalSidebarForLine(${p.id}, ${l.id})"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
         <button class="bs ac-add" onclick="insertLineAfter(${p.id},${i})"><i class="ti ti-plus"></i> セリフ追加</button>
         <button class="bs ac-add" onclick="insertStageAfter(${p.id},${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
       
-      container.appendChild(div);
-      container.appendChild(actionRow);
+      container.appendChild(div); container.appendChild(actionRow);
     }
     
     const ta=div.querySelector('textarea');
-    ta.addEventListener('input',e=>{
-      l.text=e.target.value; 
-      triggerSave(p); 
-      autoResize(e.target); 
-      updateStatBar(p);
+    ta.addEventListener('input', e=>{ l.text=e.target.value; triggerSave(p); autoResize(e.target); updateStatBar(p); });
+    ta.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); insertLineAfter(p.id, i); }
+      else if(e.key==='Enter'){ setTimeout(() => autoResize(e.target), 10); }
     });
-    
-    ta.addEventListener('keydown',e=>{
-      if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){
-        e.preventDefault();
-        insertLineAfter(p.id, i);
-      }
-      else if(e.key==='Enter'){
-        setTimeout(() => autoResize(e.target), 10);
-      }
-    });
-    
     list.appendChild(container);
   });
 
@@ -881,6 +976,104 @@ function renderLines(p){
   setTimeout(() => { autoResizeAll(); }, 50);
   updateStatBar(p);
 }
+
+/* 💡 修正案サイドバーの操作・描画ロジック */
+window.openProposalSidebarForLine = function(pid, lineId) {
+  activeLineProposalId = lineId;
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  eid('proposal-sidebar').classList.add('open');
+  renderProposalSidebarContent(p, lineId);
+};
+
+window.closeProposalSidebar = function() {
+  eid('proposal-sidebar').classList.remove('open');
+  activeLineProposalId = null;
+};
+
+function renderProposalSidebarContent(p, lineId) {
+  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  if (!line.proposals) line.proposals = [];
+  
+  const contentArea = eid('proposalSidebarContent');
+  let html = `
+    <button class="act-btn ac" style="width:100%; justify-content:center; display:flex; gap:6px;" onclick="addNewProposal(${p.id}, ${lineId})">
+      <i class="ti ti-plus"></i> 新しい修正案を追加
+    </button>
+    <div style="height:0.5px; background:var(--border); margin:4px 0;"></div>
+  `;
+
+  if (line.proposals.length === 0) {
+    html += `<p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:20px;">提出された修正案はありません</p>`;
+  } else {
+    line.proposals.forEach((prop, index) => {
+      html += `
+        <div class="prop-card">
+          <div class="prop-meta">
+            <span>👤 ${escH(prop.userName)}</span>
+            <span>${new Date(prop.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+          <textarea class="prop-text" oninput="updateProposalText(${p.id}, ${lineId}, ${index}, this.value)">${escH(prop.text)}</textarea>
+          <div class="prop-actions">
+            <button class="bs ac-danger" style="padding:2px 6px;" onclick="deleteProposal(${p.id}, ${lineId}, ${index})" title="修正案を削除"><i class="ti ti-trash"></i></button>
+            <button class="bs ac-change" style="padding:2px 8px; background:#ea580c; border-color:#ea580c; color:white;" onclick="applyProposalToLine(${p.id}, ${lineId}, ${index})">
+              <i class="ti ti-check"></i> 本文を上書き
+            </button>
+          </div>
+        </div>`;
+    });
+  }
+  contentArea.innerHTML = html;
+}
+
+window.addNewProposal = function(pid, lineId) {
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  
+  line.proposals.push({
+    text: line.text, // 現在の本文を初期コピー
+    userId: window.currentUser.uid,
+    userName: window.userData.name,
+    createdAt: Date.now()
+  });
+  
+  window.dbSave(p);
+  renderProposalSidebarContent(p, lineId);
+  renderLines(p); // 本文側のバッジ数更新
+};
+
+window.updateProposalText = function(pid, lineId, index, newText) {
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  if (line.proposals[index]) {
+    line.proposals[index].text = newText;
+    triggerSave(p);
+  }
+};
+
+window.deleteProposal = function(pid, lineId, index) {
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  if (confirm("この修正案を削除してもよろしいですか？")) {
+    line.proposals.splice(index, 1);
+    window.dbSave(p);
+    renderProposalSidebarContent(p, lineId);
+    renderLines(p);
+  }
+};
+
+window.applyProposalToLine = function(pid, lineId, index) {
+  const p = window.projects.find(x => x.id === pid); if (!p) return;
+  const line = p.lines.find(l => l.id === lineId); if (!line) return;
+  const prop = line.proposals[index];
+  if (!prop) return;
+
+  if (confirm(`この修正案で本文のテキストを上書き採用しますか？\n「${prop.text}」`)) {
+    line.text = prop.text; // 本文を上書き
+    window.dbSave(p);
+    renderLines(p); // メイン画面を再描画
+    alert("本文を修正案に書き換えました！");
+  }
+};
 
 function exportCurrent(){
   const p=window.projects.find(x=>x.id===window.activeId);if(!p)return;
