@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>台本・文字数カウンターエディタ (安定版)</title>
-  <!-- 修正: @latest → バージョン固定（表示崩れ防止） -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/dist/tabler-icons.min.css">
-  <!-- 追加: Excel(.xlsx)出力用ライブラリ（Unicode対応のため文字化けしない） -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
@@ -20,12 +18,25 @@
       --font-sans: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
       --text-danger: #ef4444; --bg-danger: #fee2e2; --border-danger: #fecaca;
     }
+    
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:var(--font-sans);background:#f9fafb}
-    #root{display:flex;flex-direction:column;min-height:100vh}
+    
+    /* ✨ 変更点: 画面全体のスクロールを無効化し、bodyをFlexコンテナにする */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+    }
+    
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
 
-    .auth-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    /* ✨ 変更点: auth-container も画面サイズにフィットさせる */
+    .auth-container { display: flex; align-items: center; justify-content: center; height: 100%; overflow-y: auto; padding: 20px; }
     .auth-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .auth-card h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
     .auth-card p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
@@ -33,7 +44,6 @@
     .btn-google:hover { background: var(--surface-1); }
 
     #app-content { display: none; flex-direction: column; flex: 1; min-height: 0; }
-    /* 修正: 折り返しを許可し、内容が入り切らないときはバーが縦に伸びるように */
     #statbar{display:flex;align-items:center;gap:8px 12px;padding:7px 14px;background:var(--surface-1);border-bottom:0.5px solid var(--border);font-size:13px;flex-shrink:0;flex-wrap:wrap}
     #statbar .sb-proj{font-weight:500;color:var(--text-primary);max-width:100%;white-space:normal;overflow-wrap:anywhere}
     #statbar .sb-sep{color:var(--border-strong)}
@@ -52,6 +62,10 @@
 
     #shell{display:flex;flex:1;min-height:0;position:relative;overflow:hidden;}
     #sidebar{width:200px;flex-shrink:0;border-right:0.5px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:3px;transition:width .2s;background:#fff}
+    
+    /* ✨ 変更点: 作品リスト（左サイドバー）の中身だけスクロールさせる */
+    #sbList { flex: 1; overflow-y: auto; min-height: 0; }
+    
     #sidebar.closed{width:40px;overflow:hidden}
     .sb-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--radius);cursor:pointer;color:var(--text-secondary);border:0.5px solid var(--border);background:none;margin-bottom:6px;flex-shrink:0}
     .sb-toggle:hover{background:var(--surface-1);color:var(--text-primary)}
@@ -67,9 +81,9 @@
     .sb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px}
     .sb-dots{font-size:14px;color:var(--text-muted);padding:2px 3px;border-radius:3px;flex-shrink:0;line-height:1}
     .sb-dots:hover{background:var(--border);color:var(--text-primary)}
-    .sb-new{display:flex;align-items:center;gap:5px;padding:6px 7px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text-accent);border:0.5px dashed var(--border-accent);margin-top:5px;white-space:nowrap}
+    .sb-new{display:flex;align-items:center;gap:5px;padding:6px 7px;border-radius:var(--radius);cursor:pointer;font-size:12px;color:var(--text-accent);border:0.5px dashed var(--border-accent);margin-top:5px;white-space:nowrap;flex-shrink:0;}
     .sb-new:hover{background:var(--bg-accent)}
-    .sb-divider{height:0.5px;background:var(--border);margin:5px 3px}
+    .sb-divider{height:0.5px;background:var(--border);margin:5px 3px;flex-shrink:0;}
     #sidebar.closed .sb-head,#sidebar.closed .sb-name,#sidebar.closed .sb-dots,#sidebar.closed .sb-new span,#sidebar.closed .sb-divider{display:none}
     #sidebar.closed .sb-new{padding:6px;justify-content:center}
     #sidebar.closed .sb-item{justify-content:center;padding:6px}
@@ -160,27 +174,24 @@
 
     #proposal-sidebar { position: absolute; top: 0; right: -280px; width: 280px; height: 100%; background: #fff; border-left: 1px solid var(--border); box-shadow: -2px 0 8px rgba(0,0,0,0.05); z-index: 100; display: flex; flex-direction: column; transition: right 0.25s ease; }
     #proposal-sidebar.open { right: 0; }
-    .ps-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fff7ed; border-bottom: 0.5px solid var(--border); font-size: 13px; font-weight: 600; color: #ea580c; }
+    .ps-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #fff7ed; border-bottom: 0.5px solid var(--border); font-size: 13px; font-weight: 600; color: #ea580c; flex-shrink: 0; }
     .ps-close { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; }
-    .ps-content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .ps-content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
     .prop-card { background: #fff7ed; border: 0.5px solid #fed7aa; border-radius: var(--radius); padding: 8px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
     .prop-meta { font-size: 10px; color: #c2410c; display: flex; justify-content: space-between; font-weight: 500; }
     .prop-text { width: 100%; font-size: 12px; line-height: 1.5; padding: 6px; border-radius: 4px; border: 0.5px solid #fed7aa; outline: none; resize: vertical; font-family: var(--font-sans); }
     .prop-actions { display: flex; gap: 4px; justify-content: flex-end; }
     .badge-prop-count { display: inline-flex; align-items: center; justify-content: center; background: #ea580c; color: white; border-radius: 10px; font-size: 9px; padding: 1px 5px; font-weight: bold; margin-left: 2px; }
 
-    /* 追加: 修正案の仮置き中スタイル */
     .line.previewing { background: #fffbf5; border-color: #fdba74; border-style: solid; }
     .line.previewing .line-text { color: #9a3412; }
     .preview-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: #ea580c; background: #ffedd5; border: 0.5px solid #fed7aa; border-radius: 10px; padding: 2px 8px; }
 
-    /* 追加: プロフィール編集関連 */
     .prof-field { display:block; text-align:left; font-size:11px; font-weight:600; color:var(--text-secondary); margin:10px 0 3px; }
     .prof-input { width:100%; padding:7px 9px; border-radius:6px; border:0.5px solid var(--border); outline:none; font-size:13px; font-family:var(--font-sans); }
     .prof-input:focus { border-color:var(--border-accent); }
     textarea.prof-input { resize:vertical; min-height:70px; line-height:1.6; }
 
-    /* 追加: メールボックス（受信箱）とリアルタイム通知 */
     .mailbox-btn { position:relative; display:flex; align-items:center; justify-content:center; background:#fff; border:0.5px solid var(--border); border-radius:20px; padding:4px 10px; cursor:pointer; color:var(--text-secondary); font-size:15px; }
     .mailbox-btn:hover { background:var(--bg-accent); border-color:var(--border-accent); color:var(--text-accent); }
     .mail-badge { position:absolute; top:-5px; right:-4px; background:#ef4444; color:#fff; border-radius:10px; font-size:9px; font-weight:bold; padding:1px 5px; display:none; line-height:1.4; }
@@ -221,20 +232,16 @@
     window.currentUser = null;
     window.userData = null;
     let unsubscribeScripts = null;
-    let unsubRequestsIn = null;   /* 自分宛フレンド申請の監視 */
-    let unsubRequestsOut = null;  /* 自分発フレンド申請の監視 */
+    let unsubRequestsIn = null;
+    let unsubRequestsOut = null;
     let unsubscribeShares = null;
     let isFirstLoad = true;
 
-    /* メールボックスの中身（リアルタイムリスナーが常時更新する） */
     window.inbox = { friendIn: [], friendOut: [], shareIn: [], shareOut: [], notices: [] };
-    /* 同一ドキュメントの二重処理・二重通知を防ぐためのセット */
     const processingIds = new Set();
     const notifiedIds = new Set();
-    /* 共有招待の最新スナップショット（作品一覧の読み込みより先に届いた場合の再処理用） */
     let latestShareDocs = [];
 
-    // 安全な一意ID生成ユーティリティ（クラッシュ防止）
     window.generateUniqueId = function() {
       return Date.now() + Math.floor(Math.random() * 1000);
     };
@@ -277,7 +284,6 @@
           let needsSave = false;
           if(!window.userData.friends){ window.userData.friends = []; needsSave = true; }
           if(window.userData.profile === undefined){ window.userData.profile = ""; needsSave = true; }
-          /* friendApproval は廃止: 常に申請→承認フロー。古いフィールドは無視してOK */
           if(needsSave){
             await gs(gd(usersCol, user.uid), JSON.parse(JSON.stringify(window.userData)));
           }
@@ -295,7 +301,6 @@
       document.getElementById("app-content").style.display = "flex";
       document.getElementById("userNameLabel").textContent = window.userData.name;
 
-      /* フレンド申請・共有招待のリアルタイム監視を開始 */
       startInboxListeners();
 
       const q = gq(scriptsCol, gor(
@@ -324,29 +329,21 @@
           window.openProject(window.activeId, true);
         }
 
-        /* 作品一覧が更新されたら、承認済み共有招待の反映を再試行
-           （共有招待のスナップショットが作品より先に届いた場合の取りこぼし防止） */
         reconcileShares();
       }, (error) => {
         console.error("Firestore同期エラー:", error);
       });
     }
 
-    /* ===== メールボックスのリアルタイム監視 ===== */
     function startInboxListeners() {
       const me = window.currentUser.uid;
 
-      /* ─── フレンド申請: 受信側（自分宛） ───
-         ORクエリの代わりに独立した2本のリスナーに分ける。
-         ORクエリは Firestore の複合インデックスが必要で自動生成されないため
-         静かに失敗する場合があり、申請が相手に届かない原因になっていた。 */
       unsubRequestsIn = gos(gq(requestsCol, gw("to", "==", me)), async (snap) => {
         const friendIn = [];
         for (const d of snap.docs) {
           const r = d.data();
           if(r.status !== 'pending') continue;
           friendIn.push({ id: d.id, fromName: r.fromName, fromUid: r.from, createdAt: r.createdAt });
-          /* 新着申請をリアルタイム通知（同一申請は1セッション1回のみ） */
           if(!notifiedIds.has(d.id)) {
             notifiedIds.add(d.id);
             window.showToast(`📮 ${r.fromName}さんからフレンド申請が届きました`);
@@ -357,16 +354,13 @@
         window.renderMailboxIfOpen();
       }, (e) => { console.error("受信申請の監視エラー:", e); });
 
-      /* ─── フレンド申請: 送信側（自分発） ─── */
       unsubRequestsOut = gos(gq(requestsCol, gw("from", "==", me)), async (snap) => {
         const friendOut = [];
         for (const d of snap.docs) {
           const r = d.data();
           if(r.status === 'pending') {
-            /* まだ承認待ち → 「申請中」としてメールボックスに表示するだけ */
             friendOut.push({ id: d.id, toName: r.toName, toUid: r.to, createdAt: r.createdAt });
           } else if(r.status === 'approved') {
-            /* 承認された → 初めて自分のフレンドリストに追加し、申請ドキュメントを削除 */
             if(processingIds.has(d.id)) continue;
             processingIds.add(d.id);
             try {
@@ -386,7 +380,6 @@
         window.renderMailboxIfOpen();
       }, (e) => { console.error("送信申請の監視エラー:", e); });
 
-      /* ─── 共有招待も2本の独立したリスナーに分ける ─── */
       let latestShareIn = [], latestShareOut = [];
       function mergeAndReconcile() {
         latestShareDocs = [...latestShareIn, ...latestShareOut];
@@ -400,11 +393,10 @@
         latestShareOut = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         mergeAndReconcile();
       }, (e) => { console.error("送信共有招待の監視エラー:", e); });
-      /* 両方まとめてクリーンアップできるようにラップする */
+      
       unsubscribeShares = () => { unsubSharesIn(); unsubSharesOut(); };
     }
 
-    /* 共有招待の状態を処理してメールボックスへ反映する */
     async function reconcileShares() {
       if(!window.currentUser) return;
       const me = window.currentUser.uid;
@@ -422,14 +414,10 @@
             shareOut.push({ id: inv.id, toName: inv.toName, scriptTitle: inv.scriptTitle, createdAt: inv.createdAt });
           }
         } else if(inv.status === 'approved' && inv.ownerUid === me) {
-          /* 相手がOKして sharedWith への書き込みも完了した後の招待ドキュメントが残っている。
-             オーナー側では「通知を出す」と「招待を削除する」だけ行う。
-             ★sharedWith の書き込みは友人側クライアントの approveShareInvite が担う（ルール上の要件）。
-               オーナーが書き換えると rules の Pattern A/B どちらにも当たらず permission-denied になる。 */
           if(processingIds.has(inv.id)) continue;
           processingIds.add(inv.id);
           try {
-            await gdd(gd(sharesCol, inv.id)); /* 招待を削除（既に友人が削除済みの場合は静かに無視） */
+            await gdd(gd(sharesCol, inv.id));
             pushNotice(`✅ ${inv.toName}さんが「${inv.scriptTitle}」の共同編集をOKしました！`);
             window.showToast(`✅ ${inv.toName}さんが「${inv.scriptTitle}」の共同編集をOKしました！`);
           } catch(e) {
@@ -446,7 +434,6 @@
       window.refreshShareModalIfOpen();
     }
 
-    /* お知らせをメールボックスに積む（最新20件・メモリ保持） */
     function pushNotice(text) {
       window.inbox.notices.unshift({ text: text, at: Date.now(), unread: true });
       window.inbox.notices = window.inbox.notices.slice(0, 20);
@@ -454,7 +441,6 @@
       window.renderMailboxIfOpen();
     }
 
-    /* 共有設定モーダル用: この作品への保留中の招待マップ（リアルタイムデータから即時取得） */
     window.shareInviteMapFor = function(scriptId) {
       const map = {};
       latestShareDocs.forEach(inv => {
@@ -465,11 +451,6 @@
       return map;
     };
 
-    /* フレンド申請を送る（常に申請→承認フロー。相手がOKするまでフレンド追加しない）
-       申請ID = 自分UID_相手UID で重複防止。相手のフレンドリストへの追加も
-       承認後に approveFriendRequest 内で行うため、ここでは絶対に直接追加しない。 */
-    /* フレンド申請を送る。エラー時は例外を投げて呼び元のcatchに任せる。
-       戻り値: true = 申請送信成功, false = 重複・スキップ */
     async function sendFriendAddOrRequest(targetData) {
       const reqId = `${window.currentUser.uid}_${targetData.uid}`;
       const existing = await gg(gd(requestsCol, reqId));
@@ -503,7 +484,6 @@
         }
         const sent = await sendFriendAddOrRequest(targetUserDoc.data());
         if(sent) {
-          /* 申請成功 → メールボックスを開いて「申請中」を即座に確認できるようにする */
           window.showToast(`📨 ${targetUserDoc.data().name}さんにフレンド申請を送りました`);
           window.openMailbox();
         }
@@ -515,13 +495,10 @@
           alert("エラーが発生しました: " + e.message);
         }
       } finally {
-        /* エラー・成功どちらの場合も必ず loading を消す */
         if(L) L.style.display = 'none';
       }
     };
 
-    /* 申請を承認: 自分のフレンドに相手を追加し、申請をapprovedに更新
-       （相手側にはリアルタイム監視経由で即座に通知が届き、相互フレンドになる） */
     window.approveFriendRequest = async function(reqId) {
       const L = document.getElementById('loading');
       if(L) L.style.display = 'block';
@@ -529,15 +506,14 @@
         const d = await gg(gd(requestsCol, reqId));
         if(!d.exists()){ alert("申請が見つかりませんでした。既に取り消された可能性があります。"); return; }
         const r = d.data();
-        /* 自分のフレンドリストに追加（重複チェック付き） */
+        
         if(!window.userData.friends.some(f => f.uid === r.from)) {
           window.userData.friends.push({ uid: r.from, name: r.fromName });
           await gs(gd(usersCol, window.currentUser.uid), JSON.parse(JSON.stringify(window.userData)));
         }
-        /* 申請を approved に更新 → 送信側リアルタイムリスナーが反応して相互フレンド化される */
+        
         await gs(gd(requestsCol, reqId), { status: 'approved' }, { merge: true });
         window.showToast(`✅ ${r.fromName}さんをフレンドに追加しました！`);
-        /* リアルタイムリスナーがメールボックスとフレンドリストを自動更新する */
       } catch(e) {
         console.error("承認エラー:", e);
         alert("エラーが発生しました: " + e.message);
@@ -558,7 +534,6 @@
       catch(e) { console.error("取消エラー:", e); alert("エラー: " + e.message); }
     };
 
-    /* ===== プロフィール保存（名前16文字・自己紹介300文字） ===== */
     window.saveProfile = async function() {
       const nameEl = document.getElementById("profNameInput");
       const bioEl = document.getElementById("profBioInput");
@@ -575,12 +550,6 @@
       window.openProfileModal();
     };
 
-    /* ===== 共有の招待（承認制の共同編集） =====
-       所有者が招待を送り、相手がOKした後に初めて sharedWith に追加され編集可能になる。
-       相手の承認は招待ドキュメントの status 更新で伝わり、
-       所有者側のリアルタイム監視が即座に取り込んで共同編集を開始する */
-
-    /* 招待を送る */
     window.sendShareInvite = async function(friendUid) {
       const p = window.projects.find(x => String(x.id) === String(window.activeId));
       if(!p) return;
@@ -596,26 +565,13 @@
       });
       document.getElementById('loading').style.display = 'none';
       window.showToast(`📨 ${f.name}さんに共有の招待を送りました。相手がOKすると共同編集できます。`);
-      /* 一覧の更新はリアルタイム監視が自動で行う */
     };
 
-    /* 招待の取消（共有設定・メールボックスのどちらからでも呼ばれる） */
     window.cancelShareInvite = async function(inviteId) {
       if(!confirm("この招待を取り消しますか？")) return;
       await gdd(gd(sharesCol, inviteId));
     };
 
-    /* 共有解除（オーナーが sharedWith からメンバーを削除する）
-       ★現在のルールには「オーナーが削除する」パターンが存在しないため、
-         下記の Pattern C をルールに追加しないと permission-denied になります。
-         追加方法: scripts ルールの update ブロックの末尾に
-         // Pattern C: 所有者がメンバーを削除する
-         || (
-           resource.data.userId == request.auth.uid &&
-           request.resource.data.userId == resource.data.userId &&
-           request.resource.data.sharedWith.toSet().hasOnly(resource.data.sharedWith.toSet())
-         )
-         を追加してください */
     window.unshareFriend = async function(friendUid) {
       const p = window.projects.find(x => String(x.id) === String(window.activeId));
       if(!p || !p.sharedWith) return;
@@ -625,33 +581,21 @@
         await window.dbSave(p);
         window.refreshShareModalIfOpen();
       } catch(e) {
-        /* permission-denied の場合はルールに Pattern C が未追加 */
         if(e.code === 'permission-denied') {
           alert("共有解除にはFirestoreルールへの追加が必要です。\nルールに Pattern C を追加してください（コードのコメントを参照）。");
         } else {
           alert("エラーが発生しました: " + e.message);
         }
-        /* ロールバック: メモリ上のデータを元に戻す */
         if(!p.sharedWith.includes(friendUid)) p.sharedWith.push(friendUid);
       }
     };
 
-    /* 受信側: 招待をOKする
-       処理順序（ルールのPattern B要件に合わせた順序）:
-         1. 招待の status を 'approved' に更新（Pattern B の「承認済み招待」証明を先に作る）
-         2. scripts ドキュメントに arrayUnion で自分のUIDを追加
-            ★read なしで書けるので「読み取り権限なし」エラーが発生しない
-            ★Firestoreルールが「approved な招待が存在する」ことを確認してPattern B通過
-         3. 招待ドキュメントを削除（後片付け） */
     window.approveShareInvite = async function(inviteId) {
       const L = document.getElementById('loading');
       if(L) L.style.display = 'block';
       try {
-        /* Step 1: 招待を approved に更新 */
         await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
 
-        /* Step 2: スクリプトのsharedWithに自分を追加（read不要、arrayUnionで直接書き込み）
-           inviteId の形式は "{scriptId}_{自分のUID}" なので分割してscriptIdを取得 */
         const inv = latestShareDocs.find(d => d.id === inviteId);
         if(inv && inv.scriptId) {
           await gs(
@@ -661,7 +605,6 @@
           );
         }
 
-        /* Step 3: 招待ドキュメントを削除 */
         await gdd(gd(sharesCol, inviteId));
 
         window.showToast("✅ 共同編集をOKしました！作品一覧に追加されます。");
@@ -828,9 +771,6 @@ let ctxTargetId=null;
 let newModalMode='script';
 let activeLineProposalId = null;
 
-/* 修正: 保存タイマーをプロジェクトごとに分離
-   （旧実装は1つのタイマーを全作品で共有していたため、
-     連続で別の作品を編集すると前の作品の保存がキャンセルされ変更が消失する） */
 let saveTimeouts = {};
 function triggerSave(p) {
   const key = String(p.id);
@@ -842,7 +782,6 @@ function triggerSave(p) {
 }
 
 function eid(id){return document.getElementById(id)}
-/* 修正: " と ' もエスケープ（value="..." 属性の破壊・HTML注入防止） */
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function truncTitle(s){return s ? (s.length>9?s.slice(0,9)+'…':s) : '無題'}
 function applyFilters(t,f){
@@ -862,7 +801,6 @@ function autoResize(ta){
 }
 function autoResizeAll() { document.querySelectorAll('.line-text').forEach(ta => autoResize(ta)); }
 
-/* 追加: 行の「実効テキスト」を返す（仮置き中は仮置きテキスト、通常は本文） */
 function effText(l){
   return l.previewOn ? (l.previewText || '') : (l.text || '');
 }
@@ -948,8 +886,6 @@ window.openProfileModal = function() {
   </div>`;
 };
 
-/* ===== メールボックス ===== */
-/* 未読数バッジの更新（受信中の申請・招待＋未読お知らせ） */
 window.updateMailBadge = function() {
   const badge = eid('mailBadge'); if(!badge) return;
   const box = window.inbox || { friendIn:[], shareIn:[], notices:[] };
@@ -962,7 +898,6 @@ window.openMailbox = function() {
   window.mailboxOpen = true;
   window.shareModalScriptId = null;
   renderMailbox();
-  /* 開いたらお知らせを既読にする */
   (window.inbox.notices || []).forEach(n => n.unread = false);
   window.updateMailBadge();
 };
@@ -975,7 +910,6 @@ function renderMailbox() {
   const box = window.inbox;
   let html = '';
 
-  /* 届いたフレンド申請 */
   html += '<div class="mail-section"><i class="ti ti-user-plus"></i> 届いたフレンド申請</div>';
   if(box.friendIn.length) {
     html += box.friendIn.map(r => `
@@ -990,7 +924,6 @@ function renderMailbox() {
     html += '<p style="font-size:11px;color:var(--text-muted);padding:4px 6px;text-align:left;">なし</p>';
   }
 
-  /* 届いた共同編集の招待 */
   html += '<div class="mail-section"><i class="ti ti-share"></i> 届いた共同編集の招待</div>';
   if(box.shareIn.length) {
     html += box.shareIn.map(inv => `
@@ -1005,7 +938,6 @@ function renderMailbox() {
     html += '<p style="font-size:11px;color:var(--text-muted);padding:4px 6px;text-align:left;">なし</p>';
   }
 
-  /* 送信済み（申請中・招待中） */
   if(box.friendOut.length || box.shareOut.length) {
     html += '<div class="mail-section"><i class="ti ti-clock"></i> 送信済み（相手の返事待ち）</div>';
     html += box.friendOut.map(r => `
@@ -1020,7 +952,6 @@ function renderMailbox() {
       </div>`).join('');
   }
 
-  /* お知らせ */
   html += '<div class="mail-section"><i class="ti ti-bell"></i> お知らせ</div>';
   if(box.notices.length) {
     html += box.notices.map(n => {
@@ -1049,7 +980,6 @@ window.closeMailbox = function() {
   if(window.activeId) openProject(window.activeId); else renderEmpty();
 };
 
-/* トースト通知（画面右上に4秒表示） */
 window.showToast = function(msg) {
   const area = eid('toastArea'); if(!area) return;
   const t = document.createElement('div');
@@ -1060,7 +990,6 @@ window.showToast = function(msg) {
   setTimeout(() => { t.remove(); }, 4000);
 };
 
-/* ===== 作品の共有設定（招待制） ===== */
 window.openShareModal = function() {
   const p = window.projects.find(x => String(x.id) === String(window.activeId));
   if(!p) return;
@@ -1087,7 +1016,6 @@ window.closeShareModal = function(pid) {
   openProject(pid);
 };
 
-/* 共有設定の行を描画（共有中／招待中／未招待の3状態） */
 function renderShareRows(scriptId) {
   const box = eid('shareListBox'); if(!box) return;
   const p = window.projects.find(x => String(x.id) === String(scriptId)); if(!p) return;
@@ -1116,7 +1044,6 @@ function renderShareRows(scriptId) {
   }).join('');
 }
 
-/* 共有設定モーダルが開いていれば、リアルタイム更新に合わせて再描画 */
 window.refreshShareModalIfOpen = function() {
   if(window.shareModalScriptId) renderShareRows(window.shareModalScriptId);
 };
@@ -1164,7 +1091,6 @@ function ctxAction(action){
   if(action==='rename') openRenameModal(p);
   else if(action==='copy') copyProjectText(p);
   else if(action==='share'){
-    /* 共有設定は activeId を参照するため、対象作品をアクティブにしてから開く */
     window.activeId=p.id;
     window.renderSidebar();
     updateStatBar(p);
@@ -1199,7 +1125,6 @@ function doRename(id){
 function copyProjectText(p){
   let text='';
   if(p.mode==='simple'){text=p.text||'';}
-  /* 仮置き中の行は仮置きテキストをコピーする */
   else if(p.lines){p.lines.forEach(l=>{if(l.type==='stage')text+=`（${effText(l)}）\n`;else{const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];text+=`${sp.name}「${effText(l)}」\n`;}});}
   navigator.clipboard.writeText(text).catch(()=>{});
 }
@@ -1276,7 +1201,6 @@ function createProject(){
 
 window.openProject = function(id, fromFirebase = false){
   if (!id) return renderEmpty();
-  /* ユーザー操作で作品を開いたときはメールボックス・共有設定の表示状態を解除する */
   if(!fromFirebase){ window.mailboxOpen = false; window.shareModalScriptId = null; }
   if(fromFirebase && document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
     const activeP = window.projects.find(x=>String(x.id)===String(id));
@@ -1301,7 +1225,6 @@ window.renderEmpty = function(){
   eid('main').innerHTML=`<div class="empty"><div class="ei"><i class="ti ti-file-plus" aria-hidden="true"></i></div><p>左下の「新規作品」から作品を追加してください</p></div>`;
 }
 
-/* SIMPLE */
 function renderSimple(p){
   eid('main').innerHTML=`
   <div class="top-bar"><span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span></div>
@@ -1314,7 +1237,6 @@ function renderSimple(p){
   </div>
   <textarea class="simple-textarea" id="simTA" placeholder="ここにテキストを入力...">${escH(p.text || '')}</textarea>`;
   const ta=eid('simTA');
-  /* 入力に合わせて縦に自動伸縮 */
   autoResize(ta);
   ta.addEventListener('input', e=>{
     p.text=e.target.value;
@@ -1329,9 +1251,7 @@ function simFilter(id){
   if(window.dbSave) window.dbSave(p);
   updateStatBar(p);
 }
-/* SETUP */
-/* 追加: 編集画面から話者設定へ安全に戻るための関数
-   （現在の speakers を setupRows に反映してから設定画面を開く） */
+
 window.openSetup = function(pid){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   if(p.speakers && p.speakers.length){
@@ -1369,7 +1289,6 @@ function renderSpRows(p){
       d.className='cdot'+(row.color.name===c.name?' sel':'');
       d.style.background=c.bg;d.style.borderColor=row.color.name===c.name?c.text:'transparent';
       d.onclick=()=>{
-        /* 入力中の名前が消えないよう、色変更前に現在値を保存 */
         p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value;});
         row.color=c;if(window.dbSave) window.dbSave(p);renderSpRows(p);
       };
@@ -1380,7 +1299,6 @@ function renderSpRows(p){
 }
 function addSpRow(pid){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
-  /* 入力中の名前が消えないよう、行追加前に現在値を保存 */
   p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value;});
   p.setupRows.push({id:String(window.generateUniqueId()),name:'',color:COLORS[p.setupRows.length%COLORS.length]});
   if(window.dbSave) window.dbSave(p);renderSpRows(p);
@@ -1395,19 +1313,15 @@ function startScript(pid){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   p.setupRows.forEach(r=>{const el=eid('sn'+r.id);if(el)r.name=el.value.trim();});
   p.speakers=p.setupRows.map(r=>({id:r.id,name:r.name||'話者',color:r.color}));
-  /* 修正: 既存の台本があれば保持する（旧実装は毎回 lines を初期化していたため
-     設定画面を開き直すたびに台本が全消去されていた） */
   if(!p.lines || !p.lines.length){
     p.lines=[{id:String(window.generateUniqueId()),type:'line',speakerId:p.speakers[0].id,text:'',proposals:[]}];
   } else {
-    /* 削除された話者に紐づくセリフは先頭の話者に付け替える */
     p.lines.forEach(l=>{
       if(l.type==='line' && !p.speakers.some(s=>String(s.id)===String(l.speakerId))){
         l.speakerId=p.speakers[0].id;
       }
     });
   }
-  /* アクティブ話者が消えていた場合も先頭に付け替え */
   if(!p.activeSpId || !p.speakers.some(s=>String(s.id)===String(p.activeSpId))){
     p.activeSpId=p.speakers[0].id;
   }
@@ -1415,7 +1329,6 @@ function startScript(pid){
   renderScriptEditor(p);
 }
 
-/* SCRIPT EDITOR */
 function renderScriptEditor(p){
   eid('main').innerHTML=`
   <div class="top-bar">
@@ -1437,7 +1350,6 @@ function renderScriptEditor(p){
   <div class="lines" id="linesList"></div>`;
   renderSpBar(p);renderLines(p);
 }
-/* 追加: altMode切替を専用関数化（インラインの長い式を整理） */
 function toggleAltMode(pid, val){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
   p.altMode=val;
@@ -1541,7 +1453,6 @@ function renderLines(p){
 
     const div=document.createElement('div');
     const pCountHtml = l.proposals.length ? `<span class="badge-prop-count">${l.proposals.length}</span>` : '';
-    /* 仮置き中に表示する操作ボタン群 */
     const previewBtns = l.previewOn ? `
         <span class="preview-badge"><i class="ti ti-eye"></i> 仮置き中</span>
         <button class="bs ac-change" onclick="commitPreview('${p.id}','${l.id}')" title="仮置き中のテキストを本文として確定"><i class="ti ti-check"></i> 採用</button>
@@ -1580,7 +1491,6 @@ function renderLines(p){
     }
 
     const ta=div.querySelector('textarea');
-    /* 仮置き中は本文ではなく仮置きテキストの方を編集する（元の本文は保護される） */
     ta.addEventListener('input', e=>{
       if(l.previewOn){ l.previewText=e.target.value; }
       else { l.text=e.target.value; }
@@ -1683,8 +1593,6 @@ window.deleteProposal = function(pid, lineId, index) {
   }
 };
 
-/* ===== 修正案の仮置き（一時的な本文表示の差し替え） ===== */
-/* 元の本文(l.text)は保持したまま、表示・文字数カウント・出力だけを仮置きテキストに切り替える */
 window.setProposalPreview = function(pid, lineId, index) {
   const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
   const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
@@ -1695,7 +1603,6 @@ window.setProposalPreview = function(pid, lineId, index) {
   renderLines(p);
 };
 
-/* 仮置きを解除して元の本文の表示に戻す */
 window.clearPreview = function(pid, lineId) {
   const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
   const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
@@ -1705,7 +1612,6 @@ window.clearPreview = function(pid, lineId) {
   renderLines(p);
 };
 
-/* 仮置き中のテキストを本文として確定する */
 window.commitPreview = function(pid, lineId) {
   const p = window.projects.find(x => String(x.id) === String(pid)); if (!p) return;
   const line = p.lines.find(l => String(l.id) === String(lineId)); if (!line) return;
@@ -1727,7 +1633,6 @@ window.applyProposalToLine = function(pid, lineId, index) {
 
   if (confirm(`この修正案で本文のテキストを上書き採用しますか？\n「${prop.text}」`)) {
     line.text = prop.text;
-    /* 上書き確定時は仮置き状態も解除する */
     line.previewOn = false;
     line.previewText = '';
     window.dbSave(p);
@@ -1736,27 +1641,21 @@ window.applyProposalToLine = function(pid, lineId, index) {
   }
 };
 
-/* ===== 出力 ===== */
-/* 共通: ダウンロード処理（使用後にURLを解放） */
 function downloadBlob(blob, filename){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
 
-/* text出力: セリフ本文のみ。修正案は含めないが、仮置き中の行は仮置きテキストを出力。
-   先頭にBOM(\uFEFF)を付与しUTF-8を明示することで、スマホ含めどの環境でも文字化けしない */
 window.exportText = function(){
   const p=window.projects.find(x=>String(x.id)===String(window.activeId));if(!p)return;
 
-  /* シンプルモードはそのまま出力（キャラ名の概念がない） */
   if(p.mode==='simple'){
     const blob=new Blob(['\uFEFF'+(p.text||'')],{type:'text/plain;charset=utf-8'});
     downloadBlob(blob,(p.title||'テキスト')+'.txt');
     return;
   }
 
-  /* 台本モード: キャラ名を含めるか選ぶモーダルを出す */
   window.mailboxOpen=false;
   window.shareModalScriptId=null;
   eid('main').innerHTML=`
@@ -1791,7 +1690,6 @@ window.doExportText = function(pid, withName){
       out+=`（${effText(l)}）\n`;
     } else {
       const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];
-      /* キャラ名あり: 田中「セリフ」 / キャラ名なし: 「セリフ」 */
       out+= withName ? `${sp.name}「${effText(l)}」\n` : `「${effText(l)}」\n`;
     }
   });
@@ -1800,8 +1698,6 @@ window.doExportText = function(pid, withName){
   openProject(pid);
 };
 
-/* Excel出力: 話者とセリフを別列に分けた .xlsx を生成。
-   xlsx形式は内部的にUnicodeなので文字化けの心配がない（CSVと違いBOM対応も不要） */
 window.exportExcel = function(){
   const p=window.projects.find(x=>String(x.id)===String(window.activeId));if(!p||!p.lines)return;
   if(typeof XLSX === 'undefined'){
@@ -1818,7 +1714,6 @@ window.exportExcel = function(){
     }
   });
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  /* 列幅をざっくり調整（話者列は狭く、セリフ列は広く） */
   ws['!cols']=[{wch:12},{wch:60}];
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '台本');
