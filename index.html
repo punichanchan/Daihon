@@ -188,10 +188,14 @@
     .branch-block { border: 1.5px solid #c4b5fd; border-radius: 10px; margin-bottom: 14px; background: #faf5ff; }
     .branch-header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #ede9fe; border-radius: 8px 8px 0 0; border-bottom: 1px solid #c4b5fd; flex-wrap: wrap; }
     .branch-header-label { font-size: 11px; font-weight: 700; color: #7c3aed; letter-spacing:.04em; flex-shrink:0; }
-    .branch-tab { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1.5px solid #c4b5fd; background: #fff; color: #7c3aed; cursor: pointer; font-weight: 600; display:inline-flex;align-items:center;gap:4px; }
+    .branch-tab { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1.5px solid #c4b5fd; background: #fff; color: #7c3aed; cursor: pointer; font-weight: 600; display:inline-flex;align-items:center;gap:4px;user-select:none; }
     .branch-tab.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-    .branch-tab-name { outline: none; border: none; background: transparent; font: inherit; color: inherit; width: 4em; min-width: 2em; max-width: 7em; cursor: text; }
-    .branch-tab.active .branch-tab-name { color: #fff; }
+    .branch-tab-label { pointer-events: none; }
+    .branch-tab-input { display:none; outline:none; border:none; background:transparent; font:inherit; color:inherit; width:5em; min-width:2em; max-width:8em; }
+    .branch-tab.active .branch-tab-input { color:#fff; }
+    .branch-tab.editing .branch-tab-label { display:none; }
+    .branch-tab.editing .branch-tab-input { display:inline; }
+    .branch-tab.editing { cursor:text; }
     .branch-add-tab { font-size: 11px; padding: 2px 7px; border-radius: 20px; border: 1.5px dashed #c4b5fd; background: none; color: #7c3aed; cursor: pointer; }
     .branch-add-tab:hover { background: #ede9fe; }
     .branch-del-btn { font-size: 10px; padding: 1px 4px; background: none; border: none; color: #a78bfa; cursor: pointer; line-height:1; }
@@ -1441,6 +1445,10 @@ function renderScriptEditor(p){
   <div class="top-bar">
     <span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span>
     <button class="icon-btn" onclick="openSetup('${p.id}')"><i class="ti ti-settings" aria-hidden="true"></i> 話者設定</button>
+    <label class="icon-btn" style="cursor:pointer;" title="Excelファイル（エクスポートと同じ形式）を読み込む">
+      <i class="ti ti-file-import"></i> Excelインポート
+      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event,'${p.id}')">
+    </label>
   </div>
   <div class="filter-row">
     <span>除外：</span>
@@ -1771,17 +1779,74 @@ function buildBranchEl(p, l, i){
   l.branches.forEach((arm, ai) => {
     const tab = document.createElement('button');
     tab.className = 'branch-tab' + (ai === activeIdx ? ' active' : '');
-    tab.innerHTML = `<input class="branch-tab-name" value="${escH(arm.name)}" maxlength="12" title="クリックで名前を編集">` +
-      (l.branches.length > 2 ? `<span class="branch-del-btn" onclick="delBranchArm('${p.id}','${l.id}',${ai})" title="このルートを削除"><i class="ti ti-x"></i></span>` : '');
+
+    const label = document.createElement('span');
+    label.className = 'branch-tab-label';
+    label.textContent = arm.name;
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'branch-tab-input';
+    nameInput.value = arm.name;
+    nameInput.maxLength = 12;
+
+    tab.appendChild(label);
+    tab.appendChild(nameInput);
+    if(l.branches.length > 2){
+      const delSpan = document.createElement('span');
+      delSpan.className = 'branch-del-btn';
+      delSpan.title = 'このルートを削除';
+      delSpan.innerHTML = '<i class="ti ti-x"></i>';
+      delSpan.addEventListener('click', (e) => { e.stopPropagation(); delBranchArm(p.id, l.id, ai); });
+      tab.appendChild(delSpan);
+    }
+
+    // Enter editing mode (PC: dblclick / mobile: long-press)
+    function startEdit(e){
+      e.stopPropagation();
+      tab.classList.add('editing');
+      nameInput.focus();
+      nameInput.select();
+    }
+    function endEdit(){
+      tab.classList.remove('editing');
+      const v = nameInput.value.trim() || arm.name;
+      nameInput.value = v;
+      label.textContent = v;
+      arm.name = v;
+      triggerSave(p);
+    }
+
+    tab.addEventListener('dblclick', startEdit);
+
+    // Long-press for mobile (250ms)
+    let pressTimer = null;
+    tab.addEventListener('pointerdown', (e) => {
+      if(e.pointerType === 'touch'){
+        pressTimer = setTimeout(() => { startEdit(e); }, 250);
+      }
+    });
+    tab.addEventListener('pointerup', () => { clearTimeout(pressTimer); pressTimer = null; });
+    tab.addEventListener('pointercancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+
+    nameInput.addEventListener('input', (e) => { arm.name = e.target.value; label.textContent = e.target.value; triggerSave(p); });
+    nameInput.addEventListener('blur', endEdit);
+    nameInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); nameInput.blur(); }
+      e.stopPropagation();
+    });
+    nameInput.addEventListener('click', (e) => e.stopPropagation());
+    nameInput.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+    // Single click = switch route (only when not editing)
     tab.addEventListener('click', (e) => {
-      if(e.target.classList.contains('branch-tab-name') || e.target.closest('.branch-del-btn')) return;
+      if(tab.classList.contains('editing')) return;
+      if(e.target.closest('.branch-del-btn')) return;
+      if(l.activeBranch === ai) return; // already active, no re-render needed
       l.activeBranch = ai;
       triggerSave(p);
       renderLines(p);
     });
-    const nameInput = tab.querySelector('.branch-tab-name');
-    nameInput.addEventListener('input', (e) => { arm.name = e.target.value; triggerSave(p); });
-    nameInput.addEventListener('click', (e) => e.stopPropagation());
+
     header.appendChild(tab);
   });
 
@@ -2032,6 +2097,98 @@ window.exportExcel = function(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '台本');
   XLSX.writeFile(wb,(p.title||'台本')+'.xlsx');
+};
+
+window.importExcel = function(event, pid){
+  const file = event.target.files[0];
+  event.target.value = ''; // reset so same file can be re-imported
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){
+    alert("Excel出力ライブラリの読み込みに失敗しました。通信環境を確認して再読み込みしてください。");
+    return;
+  }
+  const p = window.projects.find(x=>String(x.id)===String(pid));
+  if(!p) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+      // Validate: first row must be ['話者','セリフ']
+      if(!rows.length || rows[0][0] !== '話者' || rows[0][1] !== 'セリフ'){
+        alert("このファイルはインポートできる形式ではありません。\n台本エディタからエクスポートしたExcelファイルを使ってください。\n（1行目に「話者」「セリフ」が必要です）");
+        return;
+      }
+
+      const dataRows = rows.slice(1).filter(r => r[0] !== '' || r[1] !== '');
+      if(!dataRows.length){
+        alert("データ行が見つかりませんでした。");
+        return;
+      }
+
+      // Collect unique speaker names (excluding ト書き)
+      const newSpeakerNames = [];
+      dataRows.forEach(r => {
+        const spName = String(r[0] || '').trim();
+        if(spName && spName !== 'ト書き' && !newSpeakerNames.includes(spName)){
+          newSpeakerNames.push(spName);
+        }
+      });
+
+      // Build speaker map: reuse existing speakers by name, create new for unknowns
+      const COLORS = [
+        {bg:'#dbeafe',text:'#1d4ed8'},{bg:'#dcfce7',text:'#15803d'},
+        {bg:'#fce7f3',text:'#9d174d'},{bg:'#fef9c3',text:'#854d0e'},
+        {bg:'#ede9fe',text:'#6d28d9'},{bg:'#ffedd5',text:'#9a3412'},
+        {bg:'#f1f5f9',text:'#334155'},{bg:'#fef2f2',text:'#991b1b'}
+      ];
+      const speakerMap = {}; // name -> speakerId
+      newSpeakerNames.forEach(name => {
+        const existing = p.speakers.find(s => s.name === name);
+        if(existing){
+          speakerMap[name] = existing.id;
+        } else {
+          const colorIdx = Object.keys(speakerMap).length % COLORS.length;
+          const newSp = {id: String(window.generateUniqueId()), name, color: COLORS[colorIdx]};
+          p.speakers.push(newSp);
+          speakerMap[name] = newSp.id;
+        }
+      });
+
+      // Build new lines
+      const importedLines = dataRows.map(r => {
+        const spName = String(r[0] || '').trim();
+        const text = String(r[1] || '');
+        if(spName === 'ト書き'){
+          return {id: String(window.generateUniqueId()), type:'stage', text, proposals:[]};
+        } else {
+          const spId = speakerMap[spName] || p.speakers[0].id;
+          return {id: String(window.generateUniqueId()), type:'line', speakerId: spId, text, proposals:[]};
+        }
+      });
+
+      if(!confirm(`${importedLines.length}行を読み込みます。\n現在の台本の末尾に追記しますか？\n（「キャンセル」で既存の内容を全て置き換えます）`)){
+        // Replace all
+        p.lines = importedLines;
+      } else {
+        // Append
+        p.lines = [...p.lines, ...importedLines];
+      }
+
+      if(!p.activeSpId && p.speakers.length) p.activeSpId = p.speakers[0].id;
+      if(window.dbSave) window.dbSave(p);
+      renderLines(p);
+      renderSpBar(p);
+      window.showToast('Excelを読み込みました（' + importedLines.length + '行）');
+    } catch(err) {
+      console.error('importExcel error:', err);
+      alert("読み込み中にエラーが発生しました: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 };
 </script>
 </body>
