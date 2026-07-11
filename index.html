@@ -209,7 +209,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau, writeBatch as gwb, deleteField as gdf } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau, arrayRemove as gar, writeBatch as gwb, deleteField as gdf } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
@@ -578,21 +578,59 @@
       await gdd(gd(sharesCol, inviteId));
     };
 
+    // Owner removes a member (kick)
     window.unshareFriend = async function(friendUid) {
       const p = window.projects.find(x => String(x.id) === String(window.activeId));
       if(!p || !p.sharedWith) return;
+      if(p.userId !== window.currentUser.uid) return;
       if(!confirm("この作品の共有を解除しますか？相手は編集できなくなります。")) return;
       try {
         p.sharedWith = p.sharedWith.filter(uid => uid !== friendUid);
         await window.dbSave(p);
         window.refreshShareModalIfOpen();
       } catch(e) {
-        if(e.code === 'permission-denied') {
-          alert("共有解除にはFirestoreルールへの追加が必要です。\nルールに Pattern C を追加してください（コードのコメントを参照）。");
-        } else {
-          alert("エラーが発生しました: " + e.message);
-        }
+        alert("エラーが発生しました: " + e.message);
         if(!p.sharedWith.includes(friendUid)) p.sharedWith.push(friendUid);
+      }
+    };
+
+    // Member leaves the script voluntarily (resign)
+    window.leaveScript = async function() {
+      const p = window.projects.find(x => String(x.id) === String(window.activeId));
+      if(!p || !p.sharedWith) return;
+      if(p.userId === window.currentUser.uid) return;
+      if(!confirm("この作品の共同編集から抜けますか？")) return;
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        await gs(gd(scriptsCol, String(p.id)), { sharedWith: gar(window.currentUser.uid) }, { merge: true });
+        window.showToast("共同編集から抜けました。");
+      } catch(e) {
+        alert("エラーが発生しました: " + e.message);
+      } finally {
+        if(L) L.style.display = 'none';
+      }
+    };
+
+    // Owner transfers ownership to a current member (Pattern D)
+    window.transferOwnership = async function(newOwnerUid) {
+      const p = window.projects.find(x => String(x.id) === String(window.activeId));
+      if(!p) return;
+      if(p.userId !== window.currentUser.uid) return;
+      const member = (window.userData.friends || []).find(f => f.uid === newOwnerUid);
+      const memberName = member ? member.name : newOwnerUid;
+      if(!confirm(memberName + "さんにオーナー権を譲渡しますか?\nあなたはメンバーになります。この操作は取り消せません。")) return;
+      const L = document.getElementById('loading');
+      if(L) L.style.display = 'block';
+      try {
+        const newShared = p.sharedWith.filter(uid => uid !== newOwnerUid);
+        newShared.push(window.currentUser.uid);
+        await gs(gd(scriptsCol, String(p.id)), { userId: newOwnerUid, sharedWith: newShared }, { merge: true });
+        window.showToast("オーナー権を譲渡しました。");
+      } catch(e) {
+        alert("エラーが発生しました: " + e.message);
+      } finally {
+        if(L) L.style.display = 'none';
       }
     };
 
@@ -829,7 +867,8 @@ function getProjectText(p){
 
 function updateStatBar(p){
   if(!p){eid('barTitle').textContent='—';eid('barAll').textContent='0';eid('barFlt').textContent='0';eid('barActions').innerHTML='';return;}
-  const isShared = p.userId !== window.currentUser.uid;
+  const isOwner = p.userId === window.currentUser.uid;
+  const isShared = !isOwner;
   eid('barTitle').innerHTML = isShared ? `<i class="ti ti-users" style="color:var(--text-accent);font-size:14px;"></i> ${escH(truncTitle(p.title))}` : escH(truncTitle(p.title));
 
   const raw=getProjectText(p);
@@ -840,8 +879,11 @@ function updateStatBar(p){
   if(p.mode!=='simple'){
     actionsHtml += `<button class="act-btn ac" onclick="exportExcel()"><i class="ti ti-file-spreadsheet"></i> Excel出力</button>`;
   }
-  if(!isShared) {
-    actionsHtml += `<button class="act-btn" style="border-color:var(--border-accent);color:var(--text-accent);" onclick="openShareModal()"><i class="ti ti-share"></i> 共有設定</button>`;
+  // Share settings: visible to everyone (owner can invite/kick/transfer; member can invite/resign)
+  actionsHtml += `<button class="act-btn" style="border-color:var(--border-accent);color:var(--text-accent);" onclick="openShareModal()"><i class="ti ti-share"></i> 共有設定</button>`;
+  // Member-only: leave script button
+  if(isShared){
+    actionsHtml += `<button class="act-btn" style="border-color:var(--border-danger);color:var(--text-danger);" onclick="leaveScript()"><i class="ti ti-door-exit"></i> 辞退</button>`;
   }
   eid('barActions').innerHTML = actionsHtml;
 }
@@ -1036,6 +1078,8 @@ function renderShareRows(scriptId) {
   const box = eid('shareListBox'); if(!box) return;
   const p = window.projects.find(x => String(x.id) === String(scriptId)); if(!p) return;
   if(!p.sharedWith) p.sharedWith = [];
+  const isOwner = p.userId === window.currentUser.uid;
+
   if(!window.userData.friends || !window.userData.friends.length) {
     box.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">共有できるフレンドがいません。</p>';
     return;
@@ -1044,16 +1088,24 @@ function renderShareRows(scriptId) {
   box.innerHTML = window.userData.friends.map(f => {
     let statusHtml;
     if(p.sharedWith.includes(f.uid)) {
-      statusHtml = `<span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-        <span style="font-size:10px;color:#059669;font-weight:600;">共有中</span>
-        <button class="bs ac-danger" onclick="unshareFriend('${f.uid}')">解除</button>
-      </span>`;
+      if(isOwner) {
+        // Owner: can kick or transfer ownership
+        statusHtml = `<span style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+          <span style="font-size:10px;color:#059669;font-weight:600;">共有中</span>
+          <button class="bs" onclick="transferOwnership('${f.uid}')" title="オーナーを譲渡"><i class="ti ti-crown"></i> 譲渡</button>
+          <button class="bs ac-danger" onclick="unshareFriend('${f.uid}')">追放</button>
+        </span>`;
+      } else {
+        // Member: read-only view of other members
+        statusHtml = `<span style="font-size:10px;color:#059669;font-weight:600;flex-shrink:0;">共有中</span>`;
+      }
     } else if(inviteMap[f.uid]) {
       statusHtml = `<span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
         <span style="font-size:10px;color:#ea580c;font-weight:600;">相手のOK待ち</span>
         <button class="bs" onclick="cancelShareInvite('${inviteMap[f.uid].id}')">取消</button>
       </span>`;
     } else {
+      // Anyone can send an invite
       statusHtml = `<button class="bs ac-change" style="flex-shrink:0;" onclick="sendShareInvite('${f.uid}')"><i class="ti ti-send"></i> 招待を送る</button>`;
     }
     return `<div class="friend-item"><span style="overflow-wrap:anywhere;">${escH(f.name)}</span>${statusHtml}</div>`;
