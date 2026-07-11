@@ -209,7 +209,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau, writeBatch as gwb } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
@@ -594,18 +594,30 @@
       const L = document.getElementById('loading');
       if(L) L.style.display = 'block';
       try {
-        await gs(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
-
         const inv = latestShareDocs.find(d => d.id === inviteId);
-        if(inv && inv.scriptId) {
-          await gs(
-            gd(scriptsCol, String(inv.scriptId)),
-            { sharedWith: gau(window.currentUser.uid) },
-            { merge: true }
-          );
+        if(!inv || !inv.scriptId) {
+          alert("招待情報が見つかりませんでした。既に取り消された可能性があります。");
+          return;
         }
 
-        await gdd(gd(sharesCol, inviteId));
+        // ★修正: 「shareInviteをapprovedにする」と「scriptsのsharedWithに自分を追加する」を
+        // 同一バッチでアトミックに実行する。
+        // 別々のawaitに分けると、招待した側(オーナー)のリスナーが status:'approved' を
+        // 検知して先に shareInvites を削除してしまい、sharedWith 更新側の
+        // Firestoreルール判定（招待が approved であること）に失敗する
+        // レースコンディションが起き得るため。
+        const batch = gwb(db);
+        batch.set(gd(sharesCol, inviteId), { status: 'approved' }, { merge: true });
+        batch.set(
+          gd(scriptsCol, String(inv.scriptId)),
+          { sharedWith: gau(window.currentUser.uid) },
+          { merge: true }
+        );
+        await batch.commit();
+
+        // shareInvitesの削除はバッチ確定後に行う。
+        // ここでの失敗は実害がない(オーナー側リスナーが後始末として削除を試みるため)。
+        try { await gdd(gd(sharesCol, inviteId)); } catch(delErr) { /* 既に消えていてもOK */ }
 
         window.showToast("✅ 共同編集をOKしました！作品一覧に追加されます。");
       } catch(e) {
