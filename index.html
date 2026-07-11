@@ -808,6 +808,11 @@
         <i class="ti ti-plus" style="font-size:14px"></i>
         <span>新規作品</span>
       </div>
+      <label class="sb-new" style="cursor:pointer;margin-top:2px;" title="エクスポートしたExcelを新規作品として読み込む">
+        <i class="ti ti-file-import" style="font-size:14px"></i>
+        <span>Excelから読み込む</span>
+        <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+      </label>
     </div>
 
     <div id="ctxMenu">
@@ -1445,10 +1450,6 @@ function renderScriptEditor(p){
   <div class="top-bar">
     <span style="font-size:15px;font-weight:500;color:var(--text-primary)">${escH(p.title)}</span>
     <button class="icon-btn" onclick="openSetup('${p.id}')"><i class="ti ti-settings" aria-hidden="true"></i> 話者設定</button>
-    <label class="icon-btn" style="cursor:pointer;" title="Excelファイル（エクスポートと同じ形式）を読み込む">
-      <i class="ti ti-file-import"></i> Excelインポート
-      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event,'${p.id}')">
-    </label>
   </div>
   <div class="filter-row">
     <span>除外：</span>
@@ -2099,16 +2100,14 @@ window.exportExcel = function(){
   XLSX.writeFile(wb,(p.title||'台本')+'.xlsx');
 };
 
-window.importExcel = function(event, pid){
+window.importExcel = function(event){
   const file = event.target.files[0];
-  event.target.value = ''; // reset so same file can be re-imported
+  event.target.value = '';
   if(!file) return;
   if(typeof XLSX === 'undefined'){
     alert("Excel出力ライブラリの読み込みに失敗しました。通信環境を確認して再読み込みしてください。");
     return;
   }
-  const p = window.projects.find(x=>String(x.id)===String(pid));
-  if(!p) return;
 
   const reader = new FileReader();
   reader.onload = function(e){
@@ -2123,66 +2122,71 @@ window.importExcel = function(event, pid){
         return;
       }
 
-      const dataRows = rows.slice(1).filter(r => r[0] !== '' || r[1] !== '');
+      const dataRows = rows.slice(1).filter(r => String(r[0]||'').trim() !== '' || String(r[1]||'').trim() !== '');
       if(!dataRows.length){
         alert("データ行が見つかりませんでした。");
         return;
       }
 
       // Collect unique speaker names (excluding ト書き)
-      const newSpeakerNames = [];
+      const speakerNames = [];
       dataRows.forEach(r => {
         const spName = String(r[0] || '').trim();
-        if(spName && spName !== 'ト書き' && !newSpeakerNames.includes(spName)){
-          newSpeakerNames.push(spName);
+        if(spName && spName !== 'ト書き' && !speakerNames.includes(spName)){
+          speakerNames.push(spName);
         }
       });
 
-      // Build speaker map: reuse existing speakers by name, create new for unknowns
-      const COLORS = [
-        {bg:'#dbeafe',text:'#1d4ed8'},{bg:'#dcfce7',text:'#15803d'},
-        {bg:'#fce7f3',text:'#9d174d'},{bg:'#fef9c3',text:'#854d0e'},
-        {bg:'#ede9fe',text:'#6d28d9'},{bg:'#ffedd5',text:'#9a3412'},
-        {bg:'#f1f5f9',text:'#334155'},{bg:'#fef2f2',text:'#991b1b'}
-      ];
-      const speakerMap = {}; // name -> speakerId
-      newSpeakerNames.forEach(name => {
-        const existing = p.speakers.find(s => s.name === name);
-        if(existing){
-          speakerMap[name] = existing.id;
-        } else {
-          const colorIdx = Object.keys(speakerMap).length % COLORS.length;
-          const newSp = {id: String(window.generateUniqueId()), name, color: COLORS[colorIdx]};
-          p.speakers.push(newSp);
-          speakerMap[name] = newSp.id;
-        }
-      });
+      // Build speakers list for the new project
+      const speakers = speakerNames.map((name, idx) => ({
+        id: String(window.generateUniqueId()),
+        name,
+        color: COLORS[idx % COLORS.length]
+      }));
+      const speakerMap = {};
+      speakers.forEach(s => { speakerMap[s.name] = s.id; });
 
-      // Build new lines
-      const importedLines = dataRows.map(r => {
+      // Fallback speaker if file has only ト書き rows
+      if(!speakers.length){
+        speakers.push({id: String(window.generateUniqueId()), name:'話者1', color: COLORS[0]});
+      }
+
+      // Build lines
+      const lines = dataRows.map(r => {
         const spName = String(r[0] || '').trim();
         const text = String(r[1] || '');
         if(spName === 'ト書き'){
           return {id: String(window.generateUniqueId()), type:'stage', text, proposals:[]};
-        } else {
-          const spId = speakerMap[spName] || p.speakers[0].id;
-          return {id: String(window.generateUniqueId()), type:'line', speakerId: spId, text, proposals:[]};
         }
+        const spId = speakerMap[spName] || speakers[0].id;
+        return {id: String(window.generateUniqueId()), type:'line', speakerId: spId, text, proposals:[]};
       });
 
-      if(!confirm(`${importedLines.length}行を読み込みます。\n現在の台本の末尾に追記しますか？\n（「キャンセル」で既存の内容を全て置き換えます）`)){
-        // Replace all
-        p.lines = importedLines;
-      } else {
-        // Append
-        p.lines = [...p.lines, ...importedLines];
-      }
+      // Title: use filename without extension
+      const title = file.name.replace(/\.[^.]+$/, '') || '読み込んだ台本';
 
-      if(!p.activeSpId && p.speakers.length) p.activeSpId = p.speakers[0].id;
+      // Create new project in script mode
+      const newId = String(window.generateUniqueId());
+      const p = {
+        id: newId,
+        title,
+        mode: 'script',
+        filters: {space:true, punct:true, symbol:true, bracket:true},
+        sharedWith: [],
+        userId: window.currentUser.uid,
+        speakers,
+        lines,
+        activeSpId: speakers[0].id,
+        altMode: true
+      };
+
+      window.projects.push(p);
+      window.activeId = p.id;
       if(window.dbSave) window.dbSave(p);
-      renderLines(p);
-      renderSpBar(p);
-      window.showToast('Excelを読み込みました（' + importedLines.length + '行）');
+      window.renderSidebar();
+      updateStatBar(p);
+      renderScriptEditor(p);
+      window.showToast('「' + title + '」を読み込みました（' + lines.length + '行）');
     } catch(err) {
       console.error('importExcel error:', err);
       alert("読み込み中にエラーが発生しました: " + err.message);
