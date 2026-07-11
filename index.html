@@ -209,7 +209,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau, writeBatch as gwb } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore as gf, collection as gc, doc as gd, setDoc as gs, getDoc as gg, deleteDoc as gdd, query as gq, where as gw, onSnapshot as gos, or as gor, arrayUnion as gau, writeBatch as gwb, deleteField as gdf } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAglyfa3nsEgyXHWRAHIYeuB2tMOU1F5Ms",
@@ -268,7 +268,7 @@
       if(!name) { alert("名前を入力してください。"); return; }
 
       document.getElementById('loading').style.display = 'block';
-      const uData = { uid: window.currentUser.uid, name: name.slice(0,16), email: window.currentUser.email, friends: [], profile: "", friendApproval: true };
+      const uData = { uid: window.currentUser.uid, name: name.slice(0,16), friends: [], profile: "", friendApproval: true };
       await gs(gd(usersCol, window.currentUser.uid), uData);
       window.userData = uData;
       document.getElementById('loading').style.display = 'none';
@@ -284,6 +284,12 @@
           let needsSave = false;
           if(!window.userData.friends){ window.userData.friends = []; needsSave = true; }
           if(window.userData.profile === undefined){ window.userData.profile = ""; needsSave = true; }
+          // Remove email field if it was stored in older versions (privacy fix)
+          if(window.userData.email !== undefined){
+            delete window.userData.email;
+            await gs(gd(usersCol, user.uid), { email: gdf() }, { merge: true });
+            needsSave = false; // already saved above
+          }
           if(needsSave){
             await gs(gd(usersCol, user.uid), JSON.parse(JSON.stringify(window.userData)));
           }
