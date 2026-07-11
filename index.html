@@ -183,6 +183,29 @@
     .prop-actions { display: flex; gap: 4px; justify-content: flex-end; }
     .badge-prop-count { display: inline-flex; align-items: center; justify-content: center; background: #ea580c; color: white; border-radius: 10px; font-size: 9px; padding: 1px 5px; font-weight: bold; margin-left: 2px; }
 
+
+    /* Branch (route split) */
+    .branch-block { border: 1.5px solid #c4b5fd; border-radius: 10px; margin-bottom: 14px; background: #faf5ff; }
+    .branch-header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #ede9fe; border-radius: 8px 8px 0 0; border-bottom: 1px solid #c4b5fd; flex-wrap: wrap; }
+    .branch-header-label { font-size: 11px; font-weight: 700; color: #7c3aed; letter-spacing:.04em; flex-shrink:0; }
+    .branch-tab { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1.5px solid #c4b5fd; background: #fff; color: #7c3aed; cursor: pointer; font-weight: 600; display:inline-flex;align-items:center;gap:4px; }
+    .branch-tab.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .branch-tab-name { outline: none; border: none; background: transparent; font: inherit; color: inherit; width: 4em; min-width: 2em; max-width: 7em; cursor: text; }
+    .branch-tab.active .branch-tab-name { color: #fff; }
+    .branch-add-tab { font-size: 11px; padding: 2px 7px; border-radius: 20px; border: 1.5px dashed #c4b5fd; background: none; color: #7c3aed; cursor: pointer; }
+    .branch-add-tab:hover { background: #ede9fe; }
+    .branch-del-btn { font-size: 10px; padding: 1px 4px; background: none; border: none; color: #a78bfa; cursor: pointer; line-height:1; }
+    .branch-del-btn:hover { color: #ef4444; }
+    .branch-body { padding: 10px 10px 4px; }
+    .branch-actions { display: flex; gap: 6px; padding: 6px 10px 10px; flex-wrap: wrap; }
+    .bs.ac-branch { background:#ede9fe; border-color:#c4b5fd; color:#7c3aed; font-weight:500; }
+    .bs.ac-branch:hover { background:#ddd6fe; }
+
+    /* Hidden (soft-delete) lines */
+    .line-container.line-hidden { opacity: 0.38; }
+    .line-container.line-hidden .line { border-style: dashed; }
+    .hidden-badge { display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:#6b7280;background:#f3f4f6;border:0.5px solid var(--border);border-radius:10px;padding:2px 8px; }
+
     .line.previewing { background: #fffbf5; border-color: #fdba74; border-style: solid; }
     .line.previewing .line-text { color: #9a3412; }
     .preview-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: #ea580c; background: #ffedd5; border: 0.5px solid #fed7aa; border-radius: 10px; padding: 2px 8px; }
@@ -862,7 +885,23 @@ function effText(l){
 function getProjectText(p){
   if(p.mode==='simple')return p.text||'';
   if(!p.lines)return '';
-  return p.lines.map(l=>effText(l)).join('');
+  return collectActiveLines(p).map(l=>effText(l)).join('');
+}
+
+// Returns flat array of visible, active lines (skips hidden & inactive branch arms)
+function collectActiveLines(p){
+  if(!p.lines) return [];
+  const result = [];
+  p.lines.forEach(l => {
+    if(l.type === 'branch'){
+      const activeIdx = l.activeBranch || 0;
+      const arm = (l.branches || [])[activeIdx];
+      if(arm) (arm.lines || []).forEach(bl => { if(!bl.hidden) result.push(bl); });
+    } else {
+      if(!l.hidden) result.push(l);
+    }
+  });
+  return result;
 }
 
 function updateStatBar(p){
@@ -1484,6 +1523,108 @@ function insertStageAfter(pid, index) {
   },30);
 }
 
+// --- Branch operations ---
+function insertBranchBlock(pid, afterIdx){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const branchId = String(window.generateUniqueId());
+  const newBranch = {
+    id: branchId,
+    type: 'branch',
+    activeBranch: 0,
+    branches: [
+      {id: String(window.generateUniqueId()), name:'A', lines:[{id:String(window.generateUniqueId()),type:'line',speakerId:p.activeSpId||p.speakers[0].id,text:'',proposals:[]}]},
+      {id: String(window.generateUniqueId()), name:'B', lines:[{id:String(window.generateUniqueId()),type:'line',speakerId:p.activeSpId||p.speakers[0].id,text:'',proposals:[]}]}
+    ]
+  };
+  p.lines.splice(afterIdx + 1, 0, newBranch);
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+  setTimeout(autoResizeAll, 30);
+}
+
+function delBranchBlock(pid, i){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  if(!confirm("この分岐ブロック全体を削除しますか？（全ルートのセリフが消えます）")) return;
+  p.lines.splice(i,1);
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+}
+
+function addBranchArm(pid, branchId){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const b=p.lines.find(l=>String(l.id)===String(branchId));if(!b)return;
+  const names='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const name = names[b.branches.length] || String(b.branches.length+1);
+  b.branches.push({id:String(window.generateUniqueId()),name,lines:[{id:String(window.generateUniqueId()),type:'line',speakerId:p.activeSpId||p.speakers[0].id,text:'',proposals:[]}]});
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+}
+
+function delBranchArm(pid, branchId, armIdx){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const b=p.lines.find(l=>String(l.id)===String(branchId));if(!b||b.branches.length<=2)return;
+  if(!confirm("このルート（" + b.branches[armIdx].name + "）を削除しますか？")) return;
+  b.branches.splice(armIdx,1);
+  if(b.activeBranch >= b.branches.length) b.activeBranch = b.branches.length-1;
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+}
+
+function insertBranchLineAfter(pid, branchId, armIdx, afterIdx, lineType){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const b=p.lines.find(l=>String(l.id)===String(branchId));if(!b)return;
+  const arm=b.branches[armIdx];if(!arm)return;
+  const newLine = lineType==='stage'
+    ? {id:String(window.generateUniqueId()),type:'stage',text:'',proposals:[]}
+    : {id:String(window.generateUniqueId()),type:'line',speakerId:p.activeSpId||p.speakers[0].id,text:'',proposals:[]};
+  arm.lines.splice(afterIdx+1,0,newLine);
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+  setTimeout(autoResizeAll,30);
+}
+
+function delBranchLine(pid, branchId, armIdx, lineIdx){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const b=p.lines.find(l=>String(l.id)===String(branchId));if(!b)return;
+  const arm=b.branches[armIdx];if(!arm)return;
+  if(arm.lines.length<=1){alert("ルートには最低1行必要です。");return;}
+  if(confirm("この行を削除しますか？")){
+    arm.lines.splice(lineIdx,1);
+    if(window.dbSave) window.dbSave(p);
+    renderLines(p);
+  }
+}
+
+function cycleBranchSpk(pid, branchId, armIdx, lineIdx){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  const b=p.lines.find(l=>String(l.id)===String(branchId));if(!b)return;
+  const arm=b.branches[armIdx];if(!arm)return;
+  const l=arm.lines[lineIdx];if(!l||l.type==='stage')return;
+  const idx=p.speakers.findIndex(s=>String(s.id)===String(l.speakerId));
+  l.speakerId=p.speakers[(idx+1)%p.speakers.length].id;
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+}
+
+// --- Hidden (soft-delete) ---
+// branchId/armIdx are null for top-level lines
+function toggleHideLine(pid, lineId, branchId, armIdx){
+  const p=window.projects.find(x=>String(x.id)===String(pid));if(!p)return;
+  let line;
+  if(branchId){
+    const b=p.lines.find(l=>String(l.id)===String(branchId));
+    if(!b) return;
+    line=b.branches[armIdx]?.lines.find(l=>String(l.id)===String(lineId));
+  } else {
+    line=p.lines.find(l=>String(l.id)===String(lineId));
+  }
+  if(!line) return;
+  line.hidden = !line.hidden;
+  if(window.dbSave) window.dbSave(p);
+  renderLines(p);
+  updateStatBar(p);
+}
+
 function delLine(pid,i){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p||p.lines.length<=1)return;
   if (confirm("この行を削除してもよろしいですか？")) {
@@ -1506,73 +1647,178 @@ function handleDragDrop(pid, index) {
 }
 function handleDragEnd(e) { e.currentTarget.classList.remove('dragging'); dragStartIndex = null; }
 
+// Build a single normal line element (type=line or stage), used by both renderLines and branch rendering
+function buildLineEl(p, l, i, pid, opts){
+  opts = opts || {};
+  const isBranchLine = !!opts.branchBlock;
+  if(!l.proposals) l.proposals = [];
+  const container = document.createElement('div');
+  container.className = 'line-container' + (l.hidden ? ' line-hidden' : '');
+  if(!isBranchLine){
+    container.draggable = true;
+    container.addEventListener('dragstart', (e) => handleDragStart(e, i));
+    container.addEventListener('dragover', handleDragOver);
+    container.addEventListener('drop', () => handleDragDrop(pid, i));
+    container.addEventListener('dragend', handleDragEnd);
+  }
+
+  const div = document.createElement('div');
+  const pCountHtml = l.proposals.length ? `<span class="badge-prop-count">${l.proposals.length}</span>` : '';
+  const previewBtns = l.previewOn ? `
+      <span class="preview-badge"><i class="ti ti-eye"></i> 仮置き中</span>
+      <button class="bs ac-change" onclick="commitPreview('${pid}','${l.id}')" title="仮置き中のテキストを本文として確定"><i class="ti ti-check"></i> 採用</button>
+      <button class="bs" onclick="clearPreview('${pid}','${l.id}')" title="仮置きをやめて元の本文に戻す"><i class="ti ti-arrow-back-up"></i> 解除</button>` : '';
+  const hiddenBadge = l.hidden ? `<span class="hidden-badge"><i class="ti ti-eye-off"></i> 仮削除中</span>` : '';
+  const hideBtn = l.hidden
+    ? `<button class="bs" onclick="toggleHideLine('${pid}','${l.id}',${isBranchLine?`'${opts.branchId}',${opts.armIdx}`:'null,null'})"><i class="ti ti-eye"></i> 復元</button>`
+    : `<button class="bs" onclick="toggleHideLine('${pid}','${l.id}',${isBranchLine?`'${opts.branchId}',${opts.armIdx}`:'null,null'})" title="仮削除（出力・文字数から除外）"><i class="ti ti-eye-off"></i> 仮削除</button>`;
+
+  const insertFn = isBranchLine
+    ? `insertBranchLineAfter('${pid}','${opts.branchId}',${opts.armIdx},${i},'line')`
+    : `insertLineAfter('${pid}',${i})`;
+  const insertStageFn = isBranchLine
+    ? `insertBranchLineAfter('${pid}','${opts.branchId}',${opts.armIdx},${i},'stage')`
+    : `insertStageAfter('${pid}',${i})`;
+  const delFn = isBranchLine
+    ? `delBranchLine('${pid}','${opts.branchId}',${opts.armIdx},${i})`
+    : `delLine('${pid}',${i})`;
+  const proposalFn = `openProposalSidebarForLine('${pid}','${l.id}')`;
+
+  if(l.type==='stage'){
+    div.className='line stage'+(l.previewOn?' previewing':'');
+    div.innerHTML=`<span class="line-speaker" style="color:var(--text-muted);font-style:italic" title="${isBranchLine?'':'ドラッグして並び替え'}">ト書き</span>
+      <textarea class="line-text" rows="1" placeholder="（状況説明）" style="font-style:italic;color:var(--text-secondary)">${escH(effText(l))}</textarea>`;
+    const actionRow = document.createElement('div');
+    actionRow.className = 'line-inline-actions';
+    actionRow.innerHTML = `${hiddenBadge}${previewBtns}
+      ${hideBtn}
+      <button class="bs ac-danger" onclick="${delFn}"><i class="ti ti-trash"></i> 削除</button>
+      <button class="bs ac-proposal" onclick="${proposalFn}"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
+      <button class="bs ac-add" onclick="${insertFn}"><i class="ti ti-plus"></i> セリフ追加</button>
+      <button class="bs ac-add" onclick="${insertStageFn}"><i class="ti ti-brackets"></i> ト書き</button>
+      ${!isBranchLine ? `<button class="bs ac-branch" onclick="insertBranchBlock('${pid}',${i})"><i class="ti ti-git-branch"></i> ルート分岐</button>` : ""}`;
+    container.appendChild(div); container.appendChild(actionRow);
+  } else {
+    const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];
+    div.className='line'+(l.previewOn?' previewing':'');
+    div.style.borderLeftWidth='3px';
+    div.style.borderLeftColor=l.previewOn?'#ea580c':sp.color.text;
+    div.innerHTML=`<span class="line-speaker" style="color:${sp.color.text}; background:${sp.color.bg}" title="${isBranchLine?'':'ドラッグして並び替え'}">${escH(sp.name)}</span>
+      <textarea class="line-text" rows="1" placeholder="セリフを入力...">${escH(effText(l))}</textarea>`;
+    const actionRow = document.createElement('div');
+    actionRow.className = 'line-inline-actions';
+    const cycleSpkFn = isBranchLine
+      ? `cycleBranchSpk('${pid}','${opts.branchId}',${opts.armIdx},${i})`
+      : `cycleSpk('${pid}',${i})`;
+    actionRow.innerHTML = `${hiddenBadge}${previewBtns}
+      ${hideBtn}
+      <button class="bs ac-change" onclick="${cycleSpkFn}" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
+      <button class="bs ac-danger" onclick="${delFn}"><i class="ti ti-trash"></i> 削除</button>
+      <button class="bs ac-proposal" onclick="${proposalFn}"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
+      <button class="bs ac-add" onclick="${insertFn}"><i class="ti ti-plus"></i> セリフ追加</button>
+      <button class="bs ac-add" onclick="${insertStageFn}"><i class="ti ti-brackets"></i> ト書き</button>
+      ${!isBranchLine ? `<button class="bs ac-branch" onclick="insertBranchBlock('${pid}',${i})"><i class="ti ti-git-branch"></i> ルート分岐</button>` : ""}`;
+    container.appendChild(div); container.appendChild(actionRow);
+  }
+
+  const ta = div.querySelector('textarea');
+  ta.addEventListener('input', e=>{
+    if(l.previewOn){ l.previewText=e.target.value; }
+    else { l.text=e.target.value; }
+    triggerSave(p); autoResize(e.target); updateStatBar(p);
+  });
+  ta.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){
+      e.preventDefault();
+      if(isBranchLine) insertBranchLineAfter(pid, opts.branchId, opts.armIdx, i, 'line');
+      else insertLineAfter(pid, i);
+    } else if(e.key==='Enter'){ setTimeout(() => autoResize(e.target), 10); }
+  });
+  return container;
+}
+
 function renderLines(p){
   const list=eid('linesList');if(!list)return;list.innerHTML='';
   p.lines.forEach((l,i)=>{
-    if(!l.proposals) l.proposals = [];
-    const container = document.createElement('div');
-    container.className = 'line-container';
-    container.draggable = true;
-
-    container.addEventListener('dragstart', (e) => handleDragStart(e, i));
-    container.addEventListener('dragover', handleDragOver);
-    container.addEventListener('drop', () => handleDragDrop(p.id, i));
-    container.addEventListener('dragend', handleDragEnd);
-
-    const div=document.createElement('div');
-    const pCountHtml = l.proposals.length ? `<span class="badge-prop-count">${l.proposals.length}</span>` : '';
-    const previewBtns = l.previewOn ? `
-        <span class="preview-badge"><i class="ti ti-eye"></i> 仮置き中</span>
-        <button class="bs ac-change" onclick="commitPreview('${p.id}','${l.id}')" title="仮置き中のテキストを本文として確定"><i class="ti ti-check"></i> 採用</button>
-        <button class="bs" onclick="clearPreview('${p.id}','${l.id}')" title="仮置きをやめて元の本文に戻す"><i class="ti ti-arrow-back-up"></i> 解除</button>` : '';
-
-    if(l.type==='stage'){
-      div.className='line stage'+(l.previewOn?' previewing':'');
-      div.innerHTML=`<span class="line-speaker" style="color:var(--text-muted);font-style:italic" title="ドラッグして並び替え">ト書き</span>
-        <textarea class="line-text" rows="1" placeholder="（状況説明）" style="font-style:italic;color:var(--text-secondary)">${escH(effText(l))}</textarea>`;
-
-      const actionRow = document.createElement('div');
-      actionRow.className = 'line-inline-actions';
-      actionRow.innerHTML = `${previewBtns}
-        <button class="bs ac-danger" onclick="delLine('${p.id}',${i})"><i class="ti ti-trash"></i> 削除</button>
-        <button class="bs ac-proposal" onclick="openProposalSidebarForLine('${p.id}', '${l.id}')"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
-        <button class="bs ac-add" onclick="insertLineAfter('${p.id}',${i})"><i class="ti ti-plus"></i> セリフ追加</button>
-        <button class="bs ac-add" onclick="insertStageAfter('${p.id}',${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
-
-      container.appendChild(div); container.appendChild(actionRow);
+    if(l.type === 'branch'){
+      list.appendChild(buildBranchEl(p, l, i));
     } else {
-      const sp=p.speakers.find(s=>String(s.id)===String(l.speakerId))||p.speakers[0];
-      div.className='line'+(l.previewOn?' previewing':'');div.style.borderLeftWidth='3px';div.style.borderLeftColor=l.previewOn?'#ea580c':sp.color.text;
-      div.innerHTML=`<span class="line-speaker" style="color:${sp.color.text}; background:${sp.color.bg}" title="ドラッグして並び替え">${escH(sp.name)}</span>
-        <textarea class="line-text" rows="1" placeholder="セリフを入力...">${escH(effText(l))}</textarea>`;
-
-      const actionRow = document.createElement('div');
-      actionRow.className = 'line-inline-actions';
-      actionRow.innerHTML = `${previewBtns}
-        <button class="bs ac-change" onclick="cycleSpk('${p.id}',${i})" title="この行の話者を切り替え"><i class="ti ti-user-share"></i> 話者切替</button>
-        <button class="bs ac-danger" onclick="delLine('${p.id}',${i})"><i class="ti ti-trash"></i> 削除</button>
-        <button class="bs ac-proposal" onclick="openProposalSidebarForLine('${p.id}', '${l.id}')"><i class="ti ti-git-pull-request"></i> 修正案${pCountHtml}</button>
-        <button class="bs ac-add" onclick="insertLineAfter('${p.id}',${i})"><i class="ti ti-plus"></i> セリフ追加</button>
-        <button class="bs ac-add" onclick="insertStageAfter('${p.id}',${i})"><i class="ti ti-brackets"></i> ト書き</button>`;
-
-      container.appendChild(div); container.appendChild(actionRow);
+      list.appendChild(buildLineEl(p, l, i, p.id, {}));
     }
-
-    const ta=div.querySelector('textarea');
-    ta.addEventListener('input', e=>{
-      if(l.previewOn){ l.previewText=e.target.value; }
-      else { l.text=e.target.value; }
-      triggerSave(p); autoResize(e.target); updateStatBar(p);
-    });
-    ta.addEventListener('keydown', e=>{
-      if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); insertLineAfter(p.id, i); }
-      else if(e.key==='Enter'){ setTimeout(() => autoResize(e.target), 10); }
-    });
-    list.appendChild(container);
   });
-
   autoResizeAll();
   updateStatBar(p);
+}
+
+function buildBranchEl(p, l, i){
+  if(!l.branches || !l.branches.length){
+    l.branches = [
+      {id: String(window.generateUniqueId()), name:'A', lines:[]},
+      {id: String(window.generateUniqueId()), name:'B', lines:[]}
+    ];
+  }
+  if(l.activeBranch === undefined) l.activeBranch = 0;
+  const activeIdx = l.activeBranch;
+
+  const block = document.createElement('div');
+  block.className = 'branch-block';
+
+  // --- header: tabs ---
+  const header = document.createElement('div');
+  header.className = 'branch-header';
+  header.innerHTML = `<span class="branch-header-label"><i class="ti ti-git-branch"></i> ルート分岐</span>`;
+
+  l.branches.forEach((arm, ai) => {
+    const tab = document.createElement('button');
+    tab.className = 'branch-tab' + (ai === activeIdx ? ' active' : '');
+    tab.innerHTML = `<input class="branch-tab-name" value="${escH(arm.name)}" maxlength="12" title="クリックで名前を編集">` +
+      (l.branches.length > 2 ? `<span class="branch-del-btn" onclick="delBranchArm('${p.id}','${l.id}',${ai})" title="このルートを削除"><i class="ti ti-x"></i></span>` : '');
+    tab.addEventListener('click', (e) => {
+      if(e.target.classList.contains('branch-tab-name') || e.target.closest('.branch-del-btn')) return;
+      l.activeBranch = ai;
+      triggerSave(p);
+      renderLines(p);
+    });
+    const nameInput = tab.querySelector('.branch-tab-name');
+    nameInput.addEventListener('input', (e) => { arm.name = e.target.value; triggerSave(p); });
+    nameInput.addEventListener('click', (e) => e.stopPropagation());
+    header.appendChild(tab);
+  });
+
+  const addTabBtn = document.createElement('button');
+  addTabBtn.className = 'branch-add-tab';
+  addTabBtn.innerHTML = '<i class="ti ti-plus"></i>';
+  addTabBtn.title = 'ルートを追加';
+  addTabBtn.onclick = () => addBranchArm(p.id, l.id);
+  header.appendChild(addTabBtn);
+  block.appendChild(header);
+
+  // --- body: active arm lines ---
+  const body = document.createElement('div');
+  body.className = 'branch-body';
+  const arm = l.branches[activeIdx];
+  if(!arm.lines) arm.lines = [];
+  if(arm.lines.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:12px;color:var(--text-muted);padding:8px 4px;';
+    empty.textContent = 'セリフがありません';
+    body.appendChild(empty);
+  }
+  arm.lines.forEach((bl, bi) => {
+    body.appendChild(buildLineEl(p, bl, bi, p.id, {branchBlock:true, branchId:l.id, armIdx:activeIdx}));
+  });
+  block.appendChild(body);
+
+  // --- footer actions ---
+  const footer = document.createElement('div');
+  footer.className = 'branch-actions';
+  footer.innerHTML = `
+    <button class="bs ac-add" onclick="insertBranchLineAfter('${p.id}','${l.id}',${activeIdx},${arm.lines.length-1},'line')"><i class="ti ti-plus"></i> セリフ追加</button>
+    <button class="bs ac-add" onclick="insertBranchLineAfter('${p.id}','${l.id}',${activeIdx},${arm.lines.length-1},'stage')"><i class="ti ti-brackets"></i> ト書き</button>
+    <button class="bs ac-danger" onclick="delBranchBlock('${p.id}',${i})"><i class="ti ti-trash"></i> 分岐を削除</button>
+    <button class="bs ac-add" onclick="insertLineAfter('${p.id}',${i})"><i class="ti ti-plus"></i> 分岐の後にセリフ</button>`;
+  block.appendChild(footer);
+  return block;
 }
 
 window.openProposalSidebarForLine = function(pid, lineId) {
@@ -1753,7 +1999,7 @@ window.exportText = function(){
 window.doExportText = function(pid, withName){
   const p=window.projects.find(x=>String(x.id)===String(pid));if(!p||!p.lines)return;
   let out='';
-  p.lines.forEach(l=>{
+  collectActiveLines(p).forEach(l=>{
     if(l.type==='stage'){
       out+=`（${effText(l)}）\n`;
     } else {
@@ -1773,7 +2019,7 @@ window.exportExcel = function(){
     return;
   }
   const rows=[['話者','セリフ']];
-  p.lines.forEach(l=>{
+  collectActiveLines(p).forEach(l=>{
     if(l.type==='stage'){
       rows.push(['ト書き', effText(l)]);
     } else {
